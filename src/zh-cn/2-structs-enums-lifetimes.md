@@ -141,20 +141,16 @@ fn dump(s: &str) {
     // i is _not_ visible!
 }
 ```
-Loop variables (like `i`) are a little different, they are only visible in the loop
-block.  It is not an error to create a new variable using the same name ('shadowing')
-but it can be confusing.
+Loop 变量(如e `i`) 有点不同，它们只在loop范围内有效。创建一个同名变量并不会出错(因为有'shadowing')
+但容易造成迷惑。
 
-When a variable 'goes out of scope' then it is _dropped_. Any memory used is reclaimed,
-and any other _resources_ owned by that variable are given back to the system - for
-instance, dropping a `File` closes it.  This is a Good Thing. Unused resources are
-reclaimed immediately when not needed.
+当一个变量 'goes out of scope' 那么它将被 _dropped_。它使用的任何内存都会被回收，
+且该变量拥有的任何其他 _resources_ 都会返还给系统。例如关闭一个文件句柄 `File` 。
+不再使用的资源被立即回收。这是好事。
 
-(A further Rust-specific issue is that a variable may appear to be in scope, but its
-value has moved.)
+(一个更进一步的Rust特有错误是，变量还在该范围，但它的值已经被move走了。)
 
-Here a reference `rs1` is made to a value `tmp` which only lives for the duration
-of its block:
+这里一个引用 `rs1` 执向了值 `tmp` ，但值仅在所在内层块中有效：
 
 ```rust
 // ref1.rs
@@ -168,8 +164,9 @@ fn main() {
     println!("ref {}", rs1);
 }
 ```
-We borrow the value of `s1` and then borrow the value of `tmp`. But `tmp`'s value
-does not exist outside that block!
+
+我们 borrow 了变量 `s1` 的值然后又 borrow 了变量 `tmp`的值。但 `tmp`的值在超出该块范围后
+不再存在了！
 
 ```
 error: `tmp` does not live long enough
@@ -183,9 +180,8 @@ error: `tmp` does not live long enough
 10 | }
    | - borrowed value needs to live until here
 ```
-Where is `tmp`? Gone, dead, gone back to the Big Heap in the Sky: _dropped_.
-Rust is here saving you from the dreaded 'dangling pointer' problem of C -
-a reference that points to stale data.
+`tmp`去哪了？离开，销毁，返回给内存堆栈空间: _dropped_。
+Rust 这里将你从可怕的C语言 '悬空指针' 问题中拯救出来 —— 一个指针指向了脏数据。
 
 ## Tuples
 
