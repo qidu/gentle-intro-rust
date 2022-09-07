@@ -627,16 +627,13 @@ impl fmt::Debug for Person {
 
 ## 例子: 迭代一个浮点数范围
 
-We have met ranges before (`0..n`) but they don't work for floating-point values. (You
-can _force_ this but you'll end up with a step of 1.0 which is uninteresting.)
+我前面用过范围 (`0..n`) 但它们没法用浮点数。(你可以_强制_用浮点数但它会无趣的结束在1.0上）。
 
-Recall the informal definition of an iterator; it is an struct with a `next` method
-which may return `Some`-thing or `None`. In the process, the iterator itself gets modified,
-it keeps the state for the iteration (like next index and so forth.) The data that
-is being iterated over doesn't change usually, (But see `Vec::drain` for an
-interesting iterator that does modify its data.)
+回忆迭代器interator的不正式定义；它是一个有 `next` 方法的结构体，这方法会返回 `Some` 或 `None`。
+在这过程中，迭代器会修改自己，它会保持迭代的状态（如下一个序号等）。而迭代的数据本身一般不会被
+修改，(但看看 `Vec::drain` 是个能修改自己数据的有趣的迭代器)
 
-And here is the formal definition: the [Iterator trait](https://doc.rust-lang.org/std/iter/trait.Iterator.html).
+这里有迭代器的正式定义: [Iterator trait](https://doc.rust-lang.org/std/iter/trait.Iterator.html).
 
 ```rust
 trait Iterator {
@@ -645,16 +642,13 @@ trait Iterator {
     ...
 }
 ```
-Here we meet an [associated type](https://doc.rust-lang.org/stable/book/associated-types.html) of the `Iterator` trait.
-This trait must work for any type, so you must specify that return type somehow.
-The method `next` can then be written without using a
-particular type - instead it refers to that type parameter's `Item` via `Self`.
+这里我们遇到了 [associated type](https://doc.rust-lang.org/stable/book/associated-types.html) 是 `Iterator` trait
+的关联类型。这个trait需要对任何类型都可用，所以需要指定一个返回类型。写 `next` 方法时就不用其他特殊类型——相反
+用 `Self` 来引用自定义类型参数 `Item` 。
 
-The iterator trait for `f64` is written `Iterator<Item=f64>`, which can be read as
-"an Iterator with its associated type Item set to f64".
+`f64` 的迭代器trait可以写成 `Iterator<Item=f64>`，它能被读作"一个迭代器的关联类型Item被设为f64".
 
-The `...` refers to the _provided methods_ of `Iterator`. You only need to define `Item`
-and `next`, and the provided methods are defined for you.
+`...` 表示`Iterator` _已提供的方法_。你只需要定义 `Item` 和 `next`，其他方法已为你的定义好了。
 
 ```rust
 // trait3.rs
@@ -690,7 +684,7 @@ fn main() {
     }
 }
 ```
-And the rather messy looking result is
+那么它们看起来如下：
 
 ```
 0
@@ -705,28 +699,24 @@ And the rather messy looking result is
 0.8999999999999999
 0.9999999999999999
 ```
-This is because 0.1 is not precisely representable as a float, so a little formatting
-help is needed. Replace the `println!` with this
+这是因为 0.1 不是一个精确的浮点数表达，所以用点格式是必要的。修改 `println!` 为
 
 ```rust
 println!("{:.1} ", x);
 ```
-And we get cleaner output (this [format](https://doc.rust-lang.org/std/fmt/index.html)
- means 'one decimal after dot'.)
+那我们会得到更清楚的输出 (这[format](https://doc.rust-lang.org/std/fmt/index.html)
+ 表示 '小数点后只保留一位数字'.)
 
-All of the default iterator methods are available, so we can collect these values into
-a vector, map them, and so forth.
+迭代器的所有默认方法是可用的，所以我们能将那些值收集到一个vector, map, 或其他。
 
 ```rust
     let v: Vec<f64> = range(0.0, 1.0, 0.1).map(|x| x.sin()).collect();
 ```
 
-## Generic Functions
+## Generic Functions 泛型函数
 
-We want a function which will dump out any value that implements `Debug`. Here is
-a first attempt at a generic function, where we can pass a reference to _any_ type
-of value. `T` is a type parameter, which needs to be declared just after the
-function name:
+我们需要一个能dump任何实现了`Debug`的类型值。这里第一次尝试泛型函数，能传递一个
+_任意_类型值的引用。`T` 是个类型参数，需要紧挨着函数名来声明它:
 
 ```rust
 fn dump<T> (value: &T) {
@@ -736,7 +726,8 @@ fn dump<T> (value: &T) {
 let n = 42;
 dump(&n);
 ```
-However, Rust clearly knows nothing about this generic type `T`:
+尽管如此，Rust完全不知道关于泛型 `T` 任何细节:
+
 
 ```
 error[E0277]: the trait bound `T: std::fmt::Debug` is not satisfied
@@ -744,7 +735,7 @@ error[E0277]: the trait bound `T: std::fmt::Debug` is not satisfied
    = help: the trait `std::fmt::Debug` is not implemented for `T`
    = help: consider adding a `where T: std::fmt::Debug` bound
 ```
-For this to work, Rust needs to be told that `T` does in fact implement `Debug`!
+要这能行，Rust需要被告知 `T` 确实实现了 `Debug`!
 
 ```rust
 fn dump<T> (value: &T)
@@ -756,11 +747,10 @@ let n = 42;
 dump(&n);
 // value is 42
 ```
-Rust generic functions need _trait bounds_ on types - we are saying here that
-"T is any type that implements Debug". `rustc` is being very helpful, and
-suggests exactly what bound needs to be provided.
+Rust 泛型函数需要对类型参数作 _特性约束_ —— 我们这么形容"T是任何实现了Debug的类型"。
+`rustc` 非常有用，能精确的建议到底需要什么样的约束。
 
-Now that Rust knows the trait bounds for `T`, it can give you sensible compiler messages:
+现在Rust知道了约束 `T` 的特性，能给你有意义的编译信息:
 
 ```rust
 struct Foo {
@@ -771,18 +761,16 @@ let foo = Foo{name: "hello".to_string()};
 
 dump(&foo)
 ```
-And the error is "the trait `std::fmt::Debug` is not implemented for `Foo`".
+这里的错误是 "还没有为`Foo`实现特性 `std::fmt::Debug` "。
 
-Functions are already generic in dynamic languages because values carry their actual type around,
-and the type checking happens at run-time - or fails miserably. For larger programs, we really
-do want to know about problems at compile-time rather! Rather than sitting down calmly with
-compiler errors, a programmer in these languages has to deal with problems that only
-show up when the program is running. Murphy's Law then implies that these problems
-will tend to happen at the most inconvenient/disastrous time.
+在动态语言中由于变量带着类型一起，函数已是泛型的，在执行的时候检查类型——或失败得很惨。
+在大型程序中，我们只想在编译时知道全部问题！相比冷静的坐着看编译错误，那些动态语言的
+程序员只想费力处理那些在运行时才出现的错误。Murphy's Law 暗示那些问题只可能发生在困难
+的/灾难的时刻。
 
-The operation of squaring a number is generic:  `x*x` will work for integers,
-floats and generally for anything that knows about the multiplication operator `*`.
-But what are the type bounds?
+平方数操作是泛型的： `x*x` 
+对整数浮点数和所有知道乘法操作符 `*` 的类型都可以。
+那这个类型的约束是什么？
 
 ```rust
 // gen1.rs
@@ -796,7 +784,7 @@ fn main() {
     println!("res {}",res);
 }
 ```
-The first problem is that Rust does not know that `T` can be multiplied:
+第一个问题是Rust不知道 `T` 可以被相乘:
 
 ```
 error[E0369]: binary operation `*` cannot be applied to type `T`
@@ -811,8 +799,8 @@ note: an implementation of `std::ops::Mul` might be missing for `T`
 4 |     x * x
   |     ^
 ```
-Following the advice of the compiler, let's constrain that type parameter using
-[that trait](https://doc.rust-lang.org/std/ops/trait.Mul.html), which is used to implement the multiplication operator `*`:
+根据编译器的建议，我们来用 [这trait](https://doc.rust-lang.org/std/ops/trait.Mul.html) 约束下类型参数，
+该trait被用于实现乘法操作符 `*`:
 
 ```rust
 fn sqr<T> (x: T) -> T
@@ -821,7 +809,7 @@ where T: std::ops::Mul {
 }
 ```
 
-Which still doesn't work:
+还是不行:
 
 ```
 rror[E0308]: mismatched types
@@ -833,9 +821,8 @@ rror[E0308]: mismatched types
   = note: expected type `T`
   = note:    found type `<T as std::ops::Mul>::Output`
 ```
-What `rustc` is saying that the type of `x*x` is the associated type `T::Output`, not `T`.
-There's actually no reason that the type of `x*x` is the same as the type of `x`, e.g. the dot product
-of two vectors is a scalar.
+`rustc` 实际上是在说 `x*x` 的类型是关联在 `T::Output`上而非 `T`。
+没有理由认为 `x*x` 的类型与 `x` 一样，如两个向量的.乘是一个标量。
 
 ```rust
 fn sqr<T> (x: T) -> T::Output
@@ -844,7 +831,7 @@ where T: std::ops::Mul {
 }
 ```
 
-and now the error is:
+现在错误是:
 
 ```
 error[E0382]: use of moved value: `x`
@@ -858,7 +845,7 @@ error[E0382]: use of moved value: `x`
   = note: move occurs because `x` has type `T`, which does not implement the `Copy` trait
 ```
 
-So, we need to constrain the type even further!
+所以我们需要更多限制这个类型参数！
 
 ```rust
 fn sqr<T> (x: T) -> T::Output
@@ -866,10 +853,9 @@ where T: std::ops::Mul + Copy {
     x * x
 }
 ```
-And that (finally) works. Calmly listening to the compiler will often get you closer
-to the magic point when ... things compile cleanly.
+最终可行了。冷静的看看编译器错误常让你更接近魔法时刻，当所有的 ... 都编译干净.
 
-It _is_ a bit simpler in C++:
+这 _是_ 个C++的类似例子:
 
 ```cpp
 template <typename T>
@@ -877,27 +863,20 @@ T sqr(x: T) {
     return x * x;
 }
 ```
-but (to be honest) C++ is adopting cowboy tactics here. C++ template errors are famously
-bad, because all the compiler knows (ultimately) is that some operator or method is
-not defined. The C++ committee knows this is a problem and so they are working
-toward [concepts](https://en.wikipedia.org/wiki/Concepts_(C%2B%2B)), which are pretty
-much like trait-constrained type parameters in Rust.
+如实说这里 C++ 用了粗旷的牛仔战术。C++ 模板错误是出名的糟糕，因为编译器最终知道的
+是有些函数或操作符没有定义。C++委员会知道这是个问题，所有他们正在研究[concepts](https://en.wikipedia.org/wiki/Concepts_(C%2B%2B))，
+它很像Rust中对类型参数的trait约束。
 
-Rust generic functions may look a bit overwhelming at first, but being explicit means
-you will know exactly what kind of values you can safely feed it, just by looking at the
-definition.
+Rust泛型函数开头看起来有点过头，但显式声明意味着你完全知道什么类型的值可以安全的喂给它，
+只要看看定义。
 
-These functions are called _monomorphic_, in constrast to _polymorphic_. The body of
-the function is compiled separately for each unique type.  With polymorphic functions,
-the same machine code works with each matching type, dynamically _dispatching_
-the correct method.
+那些被称为单态_monomorphic_ 的函数与被称为多态_polymorphic_ 的函数相反。前者的函数体
+被编译器为每个类型编译成了独立的机器码。而后者以相同的机器代码来与任何匹配的类型一起执行，
+动态的 _dispatching_ 执行方法。
 
- Monomorphic produces faster code,
-specialized for the particular type, and can often be _inlined_.  So when `sqr(x)` is
-seen, it's effectively replaced with `x*x`.  The downside is that large generic
-functions produce a lot of code, for each type used, which can result in _code bloat_.
-As always, there are trade-offs; an experienced person learns to make the right choice
-for the job.
+单态能生成执行更快的代码，特别是为有些特殊类型常能生成 _inlined_ 函数。所以当看到 `sqr(x)`，
+它被有效的替换成了 `x*x`。缺点是大的泛型函数将生成很多代码，每个类型都有对应的，造成 _code bloat_。
+总是有个平衡取舍；一个有经验的程序员会学着为此做出正确的选择。
 
 ## Simple Enums
 
