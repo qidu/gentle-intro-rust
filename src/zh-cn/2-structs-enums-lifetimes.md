@@ -878,10 +878,9 @@ Rust泛型函数开头看起来有点过头，但显式声明意味着你完全�
 它被有效的替换成了 `x*x`。缺点是大的泛型函数将生成很多代码，每个类型都有对应的，造成 _code bloat_。
 总是有个平衡取舍；一个有经验的程序员会学着为此做出正确的选择。
 
-## Simple Enums
+## Simple Enums 简单枚举
 
-Enums are types which have a few definite values. For instance, a direction has
-only four possible values.
+Enums 是包含有限个值的类型。例如一个direction枚举变量只有4个可能的值。
 
 ```rust
 enum Direction {
@@ -894,8 +893,8 @@ enum Direction {
     // `start` is type `Direction`
     let start = Direction::Left;
 ```
-They can have methods defined on them, just like structs.
-The  `match` expression is the basic way to handle `enum` values.
+也可以为枚举定义方法，就像对结构体一样。
+`match` 表达式是最基本的处理 `enum` 值的方法。.
 
 ```rust
 impl Direction {
@@ -910,33 +909,31 @@ impl Direction {
 }
 ```
 
-Punctuation matters. Note that `*` before `self`. It's easy to forget, because often
-Rust will assume it (we said `self.first_name`, not `(*self).first_name`). However,
-matching is a more exact business. Leaving it out would give a whole spew of messages,
-which boil down to this type mismatch:
+符号是有用的。注意 `*` 在 `self` 之前。很容易忽视它，因为Rust将假设为对象
+ (即用 `self.first_name`, 而非 `(*self).first_name`)。尽管如此，匹配是个
+更精确的过程。不要它将出现一个费解的错误信息，显示类型不匹配：
 
 ```
    = note: expected type `&Direction`
    = note:    found type `Direction`
 ```
-This is because `self` has type `&Direction`, so we have to throw in the `*` to
-_deference_ the type.
+这是因为 `self` 的类型是 `&Direction`，所以我们需要放一个 `*` 来
+_解引用_ 这个类型。
 
-Like structs, enums can implement traits, and our friend `#[derive(Debug)]` can
-be added to `Direction`:
+像结构体一样，枚举能实现traits，如我们常用的 `#[derive(Debug)]` 可以
+添加给 `Direction`:
 
 ```rust
         println!("start {:?}",start);
         // start Left
 ```
-So that `as_str` method isn't really necessary, since we can always get the name from `Debug`.
-(But `as_str` does _not allocate_, which may be important.)
+所以 `as_str` 方法不是真有必要，因为我们总是可以从 `Debug` 中得到名称。
+(不过 `as_str` _不产生分配_，也很重要))
 
-You should not assume any particular ordering here - there's no implied integer
-'ordinal' value.
+你不应假设这里有任何特殊顺序——没有暗含的整数序号。
 
-Here's a method which defines the 'successor' of each `Direction` value. The
-very handy _wildcard use_ temporarily puts the enum names into the method context:
+这里有个方法定义了每个 `Direction` 值的 'successor'。手动通过*来将enum每个值名称
+放到该方法的上下文中。
 
 ```rust
     fn next(&self) -> Direction {
@@ -964,10 +961,9 @@ very handy _wildcard use_ temporarily puts the enum names into the method contex
     // d Right
     // d Down
 ```
-So this will cycle endlessly through the various directions in this particular, arbitrary,
-order. It is (in fact) a very simple _state machine_.
+所以这会特别，任意循环遍历各种方向。它实际上是非常简单的_状态机_。
 
-These enum values can't be compared:
+枚举值不能相互比较：
 
 ```
 assert_eq!(start, Direction::Left);
@@ -982,16 +978,13 @@ note: an implementation of `std::cmp::PartialEq` might be missing for `Direction
   --> enum1.rs:42:5
 ```
 
-The solution is to say `#[derive(Debug,PartialEq)]` in front of `enum Direction`.
+解决办法是把 `#[derive(Debug,PartialEq)]` 放在 `enum Direction` 之前。
 
-This is an important point - Rust user-defined types start out fresh and unadorned.
-You give them sensible default behaviours by implementing the common traits. This
-applies also to structs - if you ask for Rust to derive `PartialEq` for a struct it
-will do the sensible thing, assume that all fields implement it and build up
-a comparison. If this isn't so, or you want to redefine equality, then you are free
-to define `PartialEq` explicitly.
+这是个很重要的点 —— Rust中用户定义的类型开始是新鲜的，然后装饰的。你通过公共trait来
+给它们一些有意义的默认行为。这也可以应用给结构体 —— 如果你让Rust结构体继承了 `PartialEq` 
+也会做些有意义的动作。如果不是这样，你将重定义相等行为，这样你可以自由的显式定义 `PartialEq`。.
 
-Rust does 'C style enums' as well:
+Rust也可以提供C风格的枚举：
 
 ```rust
 // enum2.rs
@@ -1008,11 +1001,9 @@ fn main() {
     println!("speed {}", speed);
 }
 ```
-They are initialized with an integer value, and can be converted into that integer
-with a type cast.
+它们被初始化为整数值，也能通过类型转换变成整数。
 
-You only need to give the first name a value, and thereafter the
-value goes up by one each time:
+你只需要给第一个名称一个值，后面会依次自动+1 ：
 
 ```rust
 enum Difficulty {
@@ -1022,17 +1013,16 @@ enum Difficulty {
 }
 ```
 
-By the way, 'name' is too vague, like saying 'thingy' all the time. The proper term here
-is _variant_ - `Speed` has variants `Slow`,`Medium` and `Fast`.
+顺便提下，名称'name'含义太模糊，就像总说某某'thingy'一样。
+合适的术语是 _变量_ —— 枚举 `Speed` 有变量 `Slow`,`Medium` 和 `Fast`。
 
-These enums _do_ have a natural ordering, but you have to ask nicely.
-After placing `#[derive(PartialEq,PartialOrd)]` in front of `enum Speed`, then it's indeed
-true that `Speed::Fast > Speed::Slow` and `Speed::Medium != Speed::Slow`.
+枚举_确实_有一个自然的顺序，但你需要友好的询问。将 `#[derive(PartialEq,PartialOrd)]` 
+放在 `enum Speed` 之前，那么它自然行为是 `Speed::Fast > Speed::Slow` 和 `Speed::Medium != Speed::Slow`。
 
-## Enums in their Full Glory
+## Enums in their Full Glory 枚举的荣耀
 
-Rust enums in their full form are like C unions on steroids, like a Ferrari compared
-to a Fiat Uno. Consider the problem of storing different values in a type-safe way.
+Rust枚举在完整形态上像与C联合的化合物，就像法拉第跑车与菲亚特廉价车。
+考虑采用安全方式来保存不同值。
 
 ```rust
 // enum3.rs
@@ -1054,12 +1044,10 @@ fn main() {
 }
 // n Number(2.3) s Str("hello") b Bool(true)
 ```
-Again, this enum can only contain _one_ of these values; its size will be the size of
-the largest variant.
+再次说，枚举只能包含 _1_ 个值；它的大小将是其最大变量的大小。
 
-So far, not really a supercar, although it's cool that enums know how to print themselves
-out. But they also know how _what kind_ of value they contain, and _that_ is the
-superpower of `match`:
+到目前为止，还不是一个超级汽车，尽管枚举知道如何打印出自己来也很酷。
+但它们也知道自己如何包含了_什么类型_，这是进行 `match` 的超能力：
 
 ```rust
 fn eat_and_dump(v: Value) {
@@ -1079,10 +1067,10 @@ eat_and_dump(b);
 //boolean is true
 ```
 
-(And that's what `Option` and `Result` are - enums.)
+(那么 `Option` 和 `Result` 也就是 - 枚举)
 
-We like this `eat_and_dump` function, but we want to pass the value as a reference, because currently
-a move takes place and the value is 'eaten':
+我们喜欢这个 `eat_and_dump` 函数，但我们希望用引用来传递参数，因为
+上面导致了move发生而变量真被'吃掉了'：
 
 ```rust
 fn dump(v: &Value) {
@@ -1103,13 +1091,11 @@ error[E0507]: cannot move out of borrowed content
 14 |     Str(s) => println!("string is '{}'",s),
    |         - hint: to prevent move, use `ref s` or `ref mut s`
 ```
-There are things you cannot do with borrowed references. Rust is not letting
-you _extract_ the string contained in the original value. It did not complain about `Number`
-because it's happy to copy `f64`, but `String` does not implement `Copy`.
+但又不能通过借用的引用进行匹配。Rust不让你_抽取_原始值中的字符串。
+它没有抱怨 `Number` 是因为 `f64` 可以拷贝，但 `String` 没有实现 `Copy` 特性。
 
-I mentioned earlier that `match` is picky about _exact_ types;
-here we follow the hint and things will work; now we are just borrowing a reference
-to that contained string.
+我前面提到 `match` 对_严格_类型很挑剔；这里我们遵守提示就行了；
+只要借用他包含的字符串的引用。
 
 ```rust
 fn dump(v: &Value) {
@@ -1125,17 +1111,15 @@ fn dump(v: &Value) {
     dump(&s);
     // string is 'hello'
 ```
-Before we move on, filled with the euphoria of a successful Rust compilation, let's
-pause a little. `rustc` is unusually good at generating errors that have enough
-context for a human to _fix_ the error without necessarily _understanding_ the error.
+在我们继续前，因为一次成功的Rust编译而兴奋，我们暂停一会儿。
+`rustc` 在产生一些人类可以用来_修复_错误的上下文信息方面特别好，
+简直不用对这些错误有必要的_理解_。
 
-The issue is a combination of the exactness of matching, with the determination of the
-borrow checker to foil any attempt to break the Rules.  One of those Rules is that
-you cannot yank out a value which belongs to some owning type. Some knowledge of
-C++ is a hindrance here, since C++ will copy its way out of the problem, whether that
-copy even _makes sense_.  You will get exactly the same error if you try to pull out
-a string from a vector, say with `*v.get(0).unwrap()` (`*` because indexing returns references.)
-It will simply not let you do this. (Sometimes `clone` isn't such a bad solution to this.)
+这问题是匹配精确性的组合，随着借用检查的确定性以挫败任何想打断规则的尝试。
+其中一条规则是你不能拔出借走一个匹配块拥有的值。一些C++的背景知识在这
+里造成妨碍，因为C++在这里是拷贝的，不管拷贝是否_有意义_。当你尝试从数组中
+借出字符串时将得到同样的错误，例如用 `*v.get(0).unwrap()` (用 `*` 因为
+索引返回的是引用)。它将不允许你这么做。（有时`clone`不是一个好方案来做这个）
 
 (By the way, `v[0]` does not work for non-copyable values like strings for precisely this reason.
 You must either borrow with `&v[0]` or clone with `v[0].clone()`)
