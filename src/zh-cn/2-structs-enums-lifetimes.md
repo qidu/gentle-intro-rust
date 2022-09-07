@@ -93,7 +93,7 @@ fn main() {
     println!("s1 {}", s1);
 }
 ```
-The error goes away. But you'll rarely see a plain
+
 错误消失了。但你将很少看到一个简单 `String` 引用像这样传递，这种方式很丑_且_
 引入了临时字符串变量。
 
@@ -183,10 +183,9 @@ error: `tmp` does not live long enough
 `tmp`去哪了？离开，销毁，返回给内存堆栈空间: _dropped_。
 Rust 这里将你从可怕的C语言 '悬空指针' 问题中拯救出来 —— 一个指针指向了脏数据。
 
-## Tuples
+## Tuples 元组
 
-It's sometimes very useful to return multiple values from a function. Tuples are
-a convenient solution:
+有时需要从函数中返回多个值。元组Tuple就是对应的简便方案：
 
 ```rust
 // tuple1.rs
@@ -198,13 +197,13 @@ fn add_mul(x: f64, y: f64) -> (f64,f64) {
 fn main() {
     let t = add_mul(2.0,10.0);
 
-    // can debug print
+    // 可以 debug 打印
     println!("t {:?}", t);
 
-    // can 'index' the values
+    // 可以用索引引用 'index' 各值
     println!("add {} mul {}", t.0,t.1);
 
-    // can _extract_ values
+    // 可以 _抽出_ 各值
     let (add,mul) = t;
     println!("add {} mul {}", add,mul);
 }
@@ -212,7 +211,8 @@ fn main() {
 // add 12 mul 20
 // add 12 mul 20
 ```
-Tuples may contain _different_ types, which is the main difference from arrays.
+
+Tuples 可以包含  _不同_ 的类型，这是它与数组arrays的主要区别。
 
 ```rust
 let tuple = ("hello", 5, 'c');
@@ -221,8 +221,7 @@ assert_eq!(tuple.0, "hello");
 assert_eq!(tuple.1, 5);
 assert_eq!(tuple.2, 'c');
 ```
-They appear in some `Iterator` methods. `enumerate` is like the Python generator
-of the same name:
+它们出现在一些 `Iterator` 方法中。`enumerate` 很像Python的同名生成器:
 
 ```rust
     for t in ["zero","one","two"].iter().enumerate() {
@@ -230,8 +229,7 @@ of the same name:
     }
     //  0 zero; 1 one; 2 two;
 ```
-`zip` combines two iterators into a single iterator of
-tuples containing the values from both:
+`zip` 把两个元组的iterators组合成一个iterator来枚举出两者的值:
 
 ```rust
     let names = ["ten","hundred","thousand"];
@@ -242,12 +240,11 @@ tuples containing the values from both:
     //  ten 10; hundred 100; thousand 1000;
 ```
 
-## Structs
+## Structs 结构体
 
-Tuples are convenient, but saying `t.1` and keeping track of the meaning of each part
-is tedious for anything that isn't straightforward.
+Tuples 很方便，但看着 `t.1` 并持续跟踪元组的每一部分不那么直观的值是很乏味的。
 
-Rust _structs_ contain named _fields_:
+Rust的结构体 _structs_ 包含了 _fields_:
 
 ```rust
 // struct1.rs
@@ -266,13 +263,11 @@ fn main() {
 }
 ```
 
-The values of a struct will be placed next to each other in memory, although you should
-not assume any particular memory layout, since the compiler will organize the memory for
-efficiency, not size, and there may be padding.
+结构体的每个成员值在内存中会靠近放置，即便如此你应该别假设它的内存排列有任何特殊之处，
+因为编译器为把内存组织的更有效而不太在意大小，可能填充对齐。
 
-Initializing this struct is a bit clumsy, so we want to move the construction of a `Person`
-into its own function. This function can be made into an _associated function_ of `Person` by putting
-it into a `impl` block:
+初始化结构体有点笨拙，所以我们把 `Person` 的构造函数变成它自己的。这个函数可以通过
+`impl` 块变成`Person` 的  _associated function_ :
 
 ```rust
 // struct2.rs
@@ -298,10 +293,9 @@ fn main() {
     println!("person {} {}", p.first_name,p.last_name);
 }
 ```
-There is nothing magic or reserved about the name `new` here. Note that it's accessed
-using a C++-like notation using double-colon `::`.
+这里命名为 `new` 没有神奇或保留之处。注意它采用了C++风格的访问方式双冒号`::`。
 
-Here's a `Person` _method_ , that takes a _reference self_ argument:
+下面的 `Person` _method_ 使用了 _reference self_ 参数:
 
 ```rust
 impl Person {
@@ -316,11 +310,9 @@ impl Person {
     println!("fullname {}", p.full_name());
 // fullname John Smith
 ```
-The `self` is used explicitly and is passed as a reference.
-(You can think of `&self` as short for `self: &Person`.)
+`self` 参数是显式使用，并作为一个引用传递。(你可以认为 `&self` 是 `self: &Person`的缩写)
 
-The keyword `Self` refers to the struct type - you can mentally substitute `Person`
-for `Self` here:
+关键字 `Self` 表示该结构体类型 —— 你也可以直接使用 `Person` 代替 `Self`:
 
 ```rust
     fn copy(&self) -> Self {
@@ -328,32 +320,31 @@ for `Self` here:
     }
 ```
 
-Methods may allow the data to be modified using a _mutable self_ argument:
+这些方法也允许修改结构体内部数据，通过引入 _mutable self_ 参数:
 
 ```rust
     fn set_first_name(&mut self, name: &str) {
         self.first_name = name.to_string();
     }
 ```
-And the data will _move_ into the method when a plain self argument is used:
+数据将被 _move_ 方法内当使用 self 对象作为参数时:
 
 ```rust
     fn to_tuple(self) -> (String,String) {
         (self.first_name, self.last_name)
     }
 ```
-(Try that with `&self` - structs will not let go of their data without a fight!)
+(尝试用 `&self` —— 结构体将不允许成员变量跑出去!)
 
-Note that after `v.to_tuple()` is called, then `v` has moved and is no longer
-available.
+注意在调用 `v.to_tuple()` 后，`v` 被move了而不再可用。
 
-To summarize:
-  -  no `self` argument: you can associate functions with structs, like the `new` "constructor".
-  - `&self` argument: can use the values of the struct, but not change them
-  - `&mut self` argument: can modify the values
-  - `self` argument: will consume the value, which will move.
+总结一下:
+  - 没有 `self` 参数: 可以通过结构体来关联调用函数，就像 `new` "构造函数"一样。
+  - 有 `&self` 参数: 可以用结构体的变量来引用函数，但不能修改结构体变量的成员值。
+  - 有 `&mut self` 参数: 可以修改结构体变量的成员值。
+  - 有 `self` 参数: 将消费该结构体变量，也就是 move 了它。
 
-If you try to do a debug dump of a `Person`, you will get an informative error:
+如果你尝试debug dump `Person` 变量，你将得到以下错误信息:
 
 ```
 error[E0277]: the trait bound `Person: std::fmt::Debug` is not satisfied
@@ -366,19 +357,16 @@ error[E0277]: the trait bound `Person: std::fmt::Debug` is not satisfied
     add `#[derive(Debug)]` or manually implement it
    = note: required by `std::fmt::Debug::fmt`
 ```
-The compiler is giving advice, so we put `#[derive(Debug)]` in front of `Person`, and now
-there is sensible output:
+编译器给了建议，所以我们将 `#[derive(Debug)]` 放在 `Person` 前，这样就有了有意义的输出:
 
 ```
 Person { first_name: "John", last_name: "Smith" }
 ```
 
-The _directive_ makes the compiler generate a `Debug` implementation, which is very
-helpful. It's good practice to do this for your structs, so they can be
-printed out (or written as a string using `format!`).  (Doing so _by default_ would be
-very un-Rustlike.)
+这个 _directive_ 让编译器生成 `Debug` trait的实现，非常有用。这对你的结构体是很好的实践，
+所以可以打印出(或用 `format!` 写成字符串).  (如果 _全默认_ 这么做就非常不像Rust了)
 
-Here is the final little program:
+最终这个小的程序是这样:
 
 ```rust
 // struct4.rs
@@ -430,10 +418,10 @@ fn main() {
 // ("Jane", "Smith")
 ```
 
-## Lifetimes Start to Bite
+## 紧叮生命周期
 
-Usually structs contain values, but often they also need to contain references.
-Say we want to put a string slice, not a string value, in a struct.
+通常结构体包含值变量成员，但它们也常需要包含引用成员。
+比如我们想放一个字符切片到结构体中，而不是字符串变量。
 
 ```rust
 // life1.rs
@@ -457,18 +445,15 @@ error[E0106]: missing lifetime specifier
 5 |     s: &str
   |        ^ expected lifetime parameter
 ```
-To understand the complaint, you have to see the problem from the point of view of Rust.
-It will not allow a reference to be stored without knowing its lifetime. All
-references are borrowed from some value, and all values have lifetimes. The lifetime of
-a reference cannot be longer than the lifetime of that value.
-Rust cannot allow
-a situation where that reference could suddenly become invalid.
+为理解上面的报错，你需要从Rust编译器的角度看问题。它将不允许一个引用
+在不知道自己生命周期的情况下存在。所有的引用都是从一些值变量上借用而来，
+所有的值变量都有生命周期。所以引用的生命周期不能比对应值变量的长。Rust
+任何情况下都无法允许一个引用突然变得无效。
 
-Now, string slices borrow from _string literals_
-like "hello" or from `String` values. String literals exist for the duration
-of the whole program, which is called the 'static' lifetime.
+现在，字符串切片是用_字符常量_如"hello"或字符串变量 `String` 借用而来。
+字符常量在整个程序的生命周期存在，它被称为是'static'的生命周期。
 
-So this works - we assure Rust that the string slice always refers to such static strings:
+所以这就可以了——我们假设Rust字符串切片总是引用于静态字符串变量。
 
 ```rust
 // life2.rs
@@ -485,10 +470,10 @@ fn main() {
 }
 // A { s: "hello dammit" }
 ```
-It is not the most _pretty_ notation, but sometimes ugliness is the necessary
-price of being precise.
 
-This can also be used to specify a string slice that is returned from a function:
+生命周期不是 _很好_ 的标注。但有时丑陋也是精确的必要代价。
+
+以下可指定一个字符串切片用以作为函数的返回值：
 
 ```rust
 fn how(i: u32) -> &'static str {
@@ -499,10 +484,9 @@ fn how(i: u32) -> &'static str {
     }
 }
 ```
-That works for the special case of static strings, but this is very restrictive.
+这能在静态字符串的特殊情况下可行，但有比较大的限制。
 
-However we can specify that the lifetime of the reference is _at least as long_ as that of
-the struct itself.
+经管如此，我们可以指定一个引用的生命周期_最短_与结构体变量一样长。
 
 ```rust
 // life3.rs
@@ -519,13 +503,13 @@ fn main() {
     println!("{:?}", a);
 }
 ```
-Lifetimes are conventionally called 'a', 'b', etc but you could just as well call it
-'me' here.
 
-After this point, our `a` struct and the `s` string are bound by a strict contract:
-`a` borrows from `s`, and cannot outlive it.
+生命周期常被称为 'a', 'b', 等等但你也可以把它称为 'me' 或其他。
 
-With this struct definition, we would like to write a function that returns an `A` value:
+在此，结构体 `a` 和字符串 `s` 都被严格契约限制为:
+`a` 从字符串 `s` 借用，生命周期不能长于后者。
+
+基于这个结构体定义，我们可以编写一个函数返回 `A` 结构体值:
 
 ```rust
 fn makes_a() -> A {
@@ -534,14 +518,14 @@ fn makes_a() -> A {
 }
 ```
 
-But `A` needs a lifetime - "expected lifetime parameter":
+但 `A` 也需要注明生命周期 - "expected lifetime parameter":
 
 ```
   = help: this function's return type contains a borrowed value,
    but there is no value for it to be borrowed from
   = help: consider giving it a 'static lifetime
 ```
-`rustc` is giving advice, so we follow it:
+`rustc` 给了些建议，我们遵从:
 
 ```rust
 fn makes_a() -> A<'static> {
@@ -549,7 +533,7 @@ fn makes_a() -> A<'static> {
     A { s: &string }
 }
 ```
-And now the error is
+但现在错误变成：
 
 ```
 8 |      A { s: &string }
@@ -558,32 +542,29 @@ And now the error is
   | - borrowed value only lives until here
 ```
 
-There is no way that this could safely work, because `string` will be dropped when the
-function ends, and no reference to `string` can outlast it.
+这就没办法让它安全又可行。因为 `string` 在该函数结束时将被丢弃，没有任何指向它的引用能
+超过它的生命周期。
 
-You can usefully think of lifetime parameters as being part of the type of a value.
+你可以实用的认为生命周期参数是变量类型的一部分。
 
-Sometimes it seems like a good idea for a struct to contain a value _and_ a reference
-that borrows from that value.
-It's basically impossible because structs must be _moveable_, and any move will
-invalidate the reference.  It isn't necessary to do this - for instance, if your
-struct has a string field, and needs to provide slices, then it could keep indices
-and have a method to generate the actual slices.
+有时让一个结构体包含一个引用_并_指向它的一个成员变量看起来是好主意。这基本是不可能的，
+因为结构体必须是_可移动的_，任何移动操作会导致引用无效。没必要这么做，例如你的结构体
+有一个字符串变量成员，在需要提供字符串切片时，可以使用一个位置变量，并提供一个方法函数
+来确保返回的是特定字符串切片。
 
-## Traits
+## Traits 特性
 
-Please note that Rust does not spell `struct` _class_. The keyword `class` in other
-languages is so overloaded with meaning that it effectively shuts down original thinking.
+请注意Rust没有称 `struct` 为 _类_。关键字 `class` 在别的语言中被过度使而有效的屏蔽了
+原有意思。
 
-Let's put it like this: Rust structs cannot _inherit_ from other structs; they are
-all unique types. There is no _sub-typing_. They are dumb data.
+让我们这么看：Rust结构体不能_继承_其他结构体；它们每一个都是独特类型，没有_子类型_。
+他们是哑数据（相互之间无法直接联系）。
 
-So how _does_ one establish relationships between types? This is where _traits_ come in.
+那么_如何_建立类型之间的联系？这就是 _traits_ 要发挥的作用。
 
-`rustc` often talks about `implementing X trait` and so it's time to talk about traits
-properly.
+`rustc` 常提到应 `实现 X trait` ，所以该适当探讨下 traits 了。
 
-Here's a little example of defining a trait and _implementing_ it for a particular type.
+这里有个小例子定义一个 trait 并为另一个类型 _实现_ 了它。
 
 ```rust
 // trait1.rs
@@ -615,14 +596,12 @@ fn main() {
 // show four-byte signed 42
 // show eight-byte float 3.14
 ```
-It's pretty cool; we have _added a new method_ to both `i32` and `f64`!
+这真酷，我们_添加了新方法_ 到 `i32` 和 `f64`!
 
-Getting comfortable with Rust involves learning the basic traits of the
-standard library (they tend to hunt in packs.)
+要习惯Rust在标准库中引入了基本traits（它们将成群结队的出现）。
 
-`Debug` is very common.
-We gave `Person` a default implementation with the
-convenient `#[derive(Debug)]`, but say we want a `Person` to display as its full name:
+`Debug` 很常见。我们可以用 `#[derive(Debug)]` 给 `Person` 一个默认的实现，
+但如果说我们希望 `Person` 只显示它的full name:
 
 ```rust
 use std::fmt;
@@ -636,18 +615,17 @@ impl fmt::Debug for Person {
     println!("{:?}", p);
     // John Smith
 ```
-`write!` is a very useful macro - here `f` is anything that implements `Write`.
-(This would also work with a `File` - or even a `String`.)
+`write!` 是个很有用的宏——这里 `f` 可以是任何实现了 `Write` 特性的类型变量。
+(可以是个 `File` - 或甚至是 `String`.)
 
-`Display` controls how values are printed out with "{}" and is implemented
-just like `Debug`. As a useful side-effect, `ToString` is automatically
-implemented for anything implementing `Display`. So if we implement
-`Display` for `Person`, then `p.to_string()` also works.
+`Display` 控制了值如何通过 "{}" 被打印出来，被实现的如 `Debug` 一样。
+有个副作用是，`ToString` 也被任何实现了 `Display` 自动实现。所以如果
+我们为 `Person` 实现了 `Display` ，那么 `p.to_string()` 也能用了。
 
-`Clone` defines the method `clone`, and can simply be defined with
-"#[derive(Clone)]" if all the fields themselves implement `Clone`.
+`Clone` 定义了方法 `clone`，能简单的使用 `#[derive(Clone)]"` 来标注一个类型，
+前提是它所有的成员变量类型也实现了 `Clone`。
 
-## Example: iterator over floating-point range
+## 例子: 迭代一个浮点数范围
 
 We have met ranges before (`0..n`) but they don't work for floating-point values. (You
 can _force_ this but you'll end up with a step of 1.0 which is uninteresting.)
