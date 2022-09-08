@@ -1275,8 +1275,7 @@ fn match_tuple(t: (i32,String)) {
 
 ## Closures 闭包
 
-A great deal of Rust's power comes from _closures_. In their simplest form, they
-act like shortcut functions:
+Rust的巨大威力也来自闭包_closures_。在最简单的形式上，它们看起来像函数快捷方式：
 
 ```rust
     let f = |x| x * x;
@@ -1287,11 +1286,9 @@ act like shortcut functions:
     // res 100
 ```
 
-There are no explicit types in this example - everything is deduced, starting with the
-integer literal 10.
+在这例子中没有显式类型 —— 每个都是感应推导的，开始于整数常量10。
 
-We get an error if we call `f` on different types - Rust has already decided that
-`f` must be called on an integer type:
+如果我们传不同参数类型调用 `f` 将得到报错 —— Rust在第一个调用上已经决定 `f` 必须只能用整数参数： 
 
 ```
     let res = f(10);
@@ -1306,7 +1303,7 @@ We get an error if we call `f` on different types - Rust has already decided tha
 
 ```
 
-So, the first call fixes the type of the argument `x`. It's equivalent to this function:
+所以，第一个调用解决了参数 `x` 的类型。它等价于如下函数:
 
 ```rust
     fn f (x: i32) -> i32 {
@@ -1314,8 +1311,7 @@ So, the first call fixes the type of the argument `x`. It's equivalent to this f
     }
 ```
 
-But there's a big difference between functions and closures, _apart_ from the need for explicit typing.
-Here we evaluate a linear function:
+但函数与闭包之间有重大区别，后者_不再_需要类型。这里我们执行一个线性方程：
 
 ```rust
     let m = 2.0;
@@ -1327,12 +1323,12 @@ Here we evaluate a linear function:
     // res 3 5
 ```
 
-You cannot do this with the explicit `fn` form - it does not know about variables
-in the enclosing scope. The closure has _borrowed_ `m` and `c` from its context.
-
-Now, what's the type of `lin`? Only `rustc` knows.
-Under the hood, a closure is a _struct_ that is callable ('implements the call operator').
-It behaves as if it was written out like this:
+你没法用显式的函数`fn`形式来做到这个 —— 它在自己的块范围里不会知道另外两个变量
+的存在。这里闭包从上下文中_借用_了 `m` 和 `c` 变量。
+ 
+那么现在 `lin` 的类型是什么呢？ 只有 `rustc` 知道。
+在内部，闭包是一个_结构体_，能够被调用（'实现了call操作符'）。它的行为
+有点像如下实现：
 
 ```rust
 struct MyAnonymousClosure1<'a> {
@@ -1346,12 +1342,11 @@ impl <'a>MyAnonymousClosure1<'a> {
     }
 }
 ```
-The compiler is certainly being helpful, turning simple closure syntax into all
-that code! You do need to know that a closure is a _struct_ and it _borrows_ values
-from its environment. And that therefore it has a _lifetime_.
+编译器确实有帮助，它将简单的闭包语法转换成那样。你只需要记住闭包是个
+_结构体_，且它_借用_了上下文环境的变量值。然后它有生命周期。
 
-All closures are unique types, but they have traits in common.
-So even though we don't know the exact type, we know the generic constraint:
+所有的闭包都是唯一类型，但它们实现有共同的traits。尽管如此，我们
+不知道它具体的类型，我们知道共同的约束：
 
 ```rust
 fn apply<F>(x: f64, f: F) -> f64
@@ -1363,10 +1358,10 @@ where F: Fn(f64)->f64  {
     let res2 = apply(3.14, |x| x.sin());
 ```
 
-In English: `apply` works for _any_ type `T` such that `T` implements `Fn(f64)->f64` - that
-is, is a function which takes `f64` and returns `f64`.
+也即是说 `apply` 能在 _任何_ 类型 `T` 上工作，如果 `T` 实现了 `Fn(f64)->f64` 的话 ——
+也即，它是个函数能使用 `f64` 并返回 `f64`。
 
-After the call to `apply(3.0,lin)`, trying to access `lin` gives an interesting error:
+在调用 `apply(3.0,lin)` 后，尝试访问 `lin` 时会出现有趣错误:
 
 ```
     let l = lin;
@@ -1385,17 +1380,16 @@ error[E0382]: use of moved value: `lin`
 
 ```
 
-That's it, `apply` ate our closure. And there's the actual type of the struct that
-`rustc` made up to implement it. Always thinking of closures as structs is helpful.
+它是说 `apply` 消费了我们的闭包。所以确实有一个结构体类型是 `rustc` 为我们这个闭包创建的。
+总是把闭包看作为结构体是有帮助的。
 
-Calling a closure is a _method call_:  the three kinds of function traits
-correspond to the three kinds of methods:
+调用闭包就是调用方法_call_：三个函数traits对应着三个方法：
 
   - `Fn` struct passed as `&self`
   - `FnMut` struct passed as `&mut self`
   - `FnOnce` struct passed as `self`
 
-So it's possible for a closure to mutate its _captured_ references:
+所以让一个闭包来mutate它接到的引用是可能的：
 
 ```rust
     fn mutate<F>(mut f: F)
@@ -1407,11 +1401,11 @@ So it's possible for a closure to mutate its _captured_ references:
     assert_eq!(s, "hello");
 ```
 
-Note that `mut` - `f` needs to be mutable for this to work.
+注意 `mut` - `f` 需要是mutable以能完成修改任务。
 
 [#71: NLL makes this work]
 
-However, you cannot escape the rules for borrowing. Consider this:
+尽管如此，你也没法逃避借用规则。考虑如下：
 
 ```rust
 let mut s = "world";
@@ -1424,11 +1418,9 @@ changer();
 assert_eq!(s, "world");
 ```
 
-Can't be done! The error is that we cannot borrow `s`
-in the assert statement, because it has been previously borrowed by the
-closure `changer` as mutable. As long as that closure lives, no other
-code can access `s`, so the solution is to control that lifetime by
-putting the closure in a limited scope:
+无法执行！错误是我们不能在assert语句中再借用 `s` 因为它已经在前面的闭包 `changer`
+里被借用为mutable了。在那个闭包存在期间，没有其他代码能再访问 `s`， 所以
+解决办法是控制闭包的生命周期，通过将其放到一个有限的块中。 
 
 ```rust
 let mut s = "world";
@@ -1439,13 +1431,11 @@ let mut s = "world";
 assert_eq!(s, "world");
 ```
 
-At this point, if you are used to languages like JavaScript or Lua, you may wonder at the
-complexity of Rust closures compared with how straightforward they are in those languages.
-This is the necessary cost of Rust's promise to not sneakily make any allocations. In JavaScript,
-the equivalent `mutate(function() {s = "hello";})` will always result in a dynamically
-allocated closure.
+在这点，如果你已习惯了Javascript或Lua语言，你也许好奇Rust闭包相对于那些其他语言的复杂性。
+这是Rust满足承诺不做任何偷偷分配的必要代价。像在Javascript中，`mutate(function() {s = "hello";})`
+等价代码将导致动态分配的闭包。
 
-Sometimes you don't want a closure to borrow those variables, but instead _move_ them.
+有时你不想让闭包借用那些变量，但改用_move_方式获取它们。
 
 ```rust
     let name = "dolly".to_string();
@@ -1460,8 +1450,8 @@ Sometimes you don't want a closure to borrow those variables, but instead _move_
     println!("name {}",name);
 ```
 
-And the error at the last `println` is: "use of moved value: `name`". So one solution
-here - if we _did_ want to keep `name` alive - is to move a cloned copy into the closure:
+最后一个 `println` 的错误是: "用了已moved的变量: `name`". 所以这里一个办法是 ——
+如果我们 _确实_ 想要保住 `name` 有效 —— 可以move一个克隆副本到闭包里:
 
 ```rust
     let cname = name.to_string();
@@ -1469,33 +1459,29 @@ here - if we _did_ want to keep `name` alive - is to move a cloned copy into the
         println!("name {} age {}",cname,age);
     };
 ```
-Why are moved closures needed? Because we might need to call them at a point where
-the original context no longer exists.
-A classic case is when creating a _thread_.
-A moved closure does not borrow, so does not have a lifetime.
+为什么需要可moved的闭包？是因为我们可能会在当前上下文不存在的环境去调用这个闭包。
+一个经典的场景是在一个_新线程_里执行。
+一个可moved的闭包如果不借用变量值，它就不会有生命周期。
 
-A major use of closures is within iterator methods. Recall the `range` iterator we
-defined to go over a range of floating-point numbers. It's straightforward to operate
-on this (or any other iterator) using closures:
+闭包的主要用途就是用在迭代器方法里。回忆下 `range` 迭代器，我们定义了遍历一个
+浮点数范围。采用闭包来处理这个（或其他迭代）是很直观的：
 
 ```rust
     let sine: Vec<f64> = range(0.0,1.0,0.1).map(|x| x.sin()).collect();
 ```
 
-`map` isn't defined on vectors (although it's easy enough to create a trait that does this),
-because then _every_ map  will create a new vector.  This way, we have a choice. In this
-sum, no temporary objects are created:
+`map` 不是定义在 vectors 上 (尽管创建一个trait来实现它也很容易)，
+因为_每次_map调用会创建新vector。这样我们有选择。在sum中，没必要
+产生新对象：
 
 ```rust
  let sum: f64 = range(0.0,1.0,0.1).map(|x| x.sin()).sum();
 ```
 
-It will (in fact) be as fast as writing it out as an explicit loop! That performance
-guarantee would be impossible if Rust closures were as 'frictionless'
-as Javascript closures.
+它将 (实际上) 像显式写一个loop一样快。如果Rust闭包像Javascript一样的'光滑'，
+那它将无法保证够快。
 
-`filter` is another useful iterator method - it only lets through values that match
-a condition:
+`filter` 是另一个迭代器方法 —— 它只让访问满足条件的值:
 
 ```rust
     let tuples = [(10,"ten"),(20,"twenty"),(30,"thirty"),(40,"forty")];
@@ -1508,7 +1494,7 @@ a condition:
     // forty
 ```
 
-## The Three Kinds of Iterators
+## The Three Kinds of Iterators 三种迭代器
 
 The three kinds correspond (again) to the three basic argument types. Assume we
 have a vector of `String` values. Here are the iterator types explicitly, and
