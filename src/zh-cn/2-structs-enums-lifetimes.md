@@ -1121,16 +1121,15 @@ fn dump(v: &Value) {
 借出字符串时将得到同样的错误，例如用 `*v.get(0).unwrap()` (用 `*` 因为
 索引返回的是引用)。它将不允许你这么做。（有时`clone`不是一个好方案来做这个）
 
-(By the way, `v[0]` does not work for non-copyable values like strings for precisely this reason.
-You must either borrow with `&v[0]` or clone with `v[0].clone()`)
+(顺便提一下，`v[0]` 不能在non-copyable的值上正确使用，如strings就正是因为这个原因。
+你必须用 `&v[0]` 来借用或用 `v[0].clone()` 来clone它)
 
-As for `match`, you can see `Str(s) =>` as short for `Str(s: String) =>`. A local variable
-(often called a _binding_) is created.  Often that inferred type is cool, when you
-eat up a value and extract its contents. But here we really needed is `s: &String`, and the
-`ref` is a hint that ensures this: we just want to borrow that string.
+在 `match` 上，你看到 `Str(s) =>` 是 `Str(s: String) =>` 的简写。一个本地变量
+(常称为 _binding_) 被创建了。通常这样推断类型是很酷的，你能消化掉一个值并抽取
+它的内容。但这里我们真正需要的是 `s: &String`，那么 `ref` 就是确保这个线索：
+我们只想借用那个字符串。
 
-Here we do want to extract that string, and don't care about
-the enum value afterwards. `_` as usual will match anything.
+下面我们将抽取字符串，并不关心这个枚举值在抽取后如何。`_` 像往常会匹配其他别的值。
 
 ```rust
 impl Value {
@@ -1146,11 +1145,10 @@ impl Value {
     // s? Some("hello")
     // println!("{:?}", s) // error! s has moved...
 ```
-Naming matters - this is called `to_str`, not `as_str`. You can write a
-method that just borrows that string as an `Option<&String>` (The reference will need
-the same lifetime as the enum value.)  But you would not call it `to_str`.
+名称很关键 —— 这里调用了 `to_str` 而非 `as_str`。你可以写个方法只借用这字符串为一个
+ `Option<&String>` (该引用的生命周期需要与emum的值一样) 而不去调用 `to_str`。
 
-You can write `to_str` like this - it is completely equivalent:
+你可以这么实现 `to_str` —— 完全等价:
 
 ```rust
     fn to_str(self) -> Option<String> {
@@ -1162,9 +1160,9 @@ You can write `to_str` like this - it is completely equivalent:
     }
 ```
 
-## More about Matching
+## More about Matching 更多关于匹配
 
-Recall that the values of a tuple can be extracted with '()':
+回忆下元组tuple的值能用 '()' 来抽取:
 
 ```rust
     let t = (10,"hello".to_string());
@@ -1174,12 +1172,10 @@ Recall that the values of a tuple can be extracted with '()':
     // n is i32, s is String
 ```
 
-This is a special case of _destructuring_; we have some
-data and wish to either pull it apart (like here) or just borrow its values.
-Either way, we get the parts of a structure.
+这是 _destructuring_ 的特例; 我们有些数据想拆开它们（像这里），或只是借用其值。
+任何方式，我们得到了一部分。
 
-The syntax is like that used in `match`. Here
-we are explicitly borrowing the values.
+就像 `match` 用的语法一样。这里我们显式的借用值。.
 
 ```rust
     let (ref n,ref s) = t;
@@ -1187,7 +1183,7 @@ we are explicitly borrowing the values.
     // n is &i32, s is &String
 ```
 
-Destructuring works with structs as well:
+Destructuring 也能与结构体一起用:
 
 ```rust
     struct Point {
@@ -1202,13 +1198,10 @@ Destructuring works with structs as well:
     // both x and y are f32
 ```
 
-Time to revisit `match` with some new patterns. The first two patterns are exactly like `let`
-destructuring - it only matches tuples with first element zero, but _any_ string;
-the second adds an `if` so that it only matches `(1,"hello")`.
-Finally, just a variable matches _anything_. This is useful if the `match` applies
-to an expression and you don't want to bind a variable to that expression. `_` works
-like a variable but is ignored. It's a common
-way to finish off a `match`.
+是时候再用一些新模式看看 `match` 过程。前两个模式很像 `let` 解构 —— 它只
+匹配元组的第一个0元素和_任意_字符串；第二个添加了 `if` 所以只匹配 `(1,"hello")`。
+最后，一个变量能匹配_任何值_。`match` 能用上表达式是很有用的，你不希望bind
+任何变量到那个表达式。`_` 常见可用来结束 `match`。
 
 ```rust
 fn match_tuple(t: (i32,String)) {
@@ -1222,20 +1215,18 @@ fn match_tuple(t: (i32,String)) {
 }
 ```
 
-Why not just match against `(1,"hello")`? Matching is an exact business, and the compiler
-will complain:
+为什么不能直接用 `(1,"hello")`? 匹配是个精确的动作，编译器会抱错：
 
 ```
   = note: expected type `std::string::String`
   = note:    found type `&'static str`
 ```
 
-Why do we need `ref s`? It's a slightly obscure gotcha (look up the E00008 error) where
-if you have an _if guard_ you need to borrow, since the if guard happens in a different
-context, a move will take place otherwise. It's a case of the implementation leaking
-ever so slightly.
+为什么我们需要 `ref s`? 它理解起来有点晦涩 (看看 E00008 error) ，这里如果你用
+了 _if guard_ 就需要借用变量，但 if guard 在不用上下文，其他情况也就能发生了move。
+这是种非常不显眼的实现上的内存泄漏。
 
-If the type _was_ `&str` then we match it directly:
+如果类型_是_ `&str` 那么我们直接匹配:
 
 ```rust
     match (42,"answer") {
@@ -1244,10 +1235,9 @@ If the type _was_ `&str` then we match it directly:
     };
 ```
 
-What applies to `match` applies to `if let`. This is a cool example, since if we
-get a `Some`, we can match inside it and only extract the string from the tuple. So it
-isn't necessary to have nested `if let` statements here. We use `_` because we aren't interested
-in the first part of the tuple.
+如果 `match` 使用了 `if let` 会发生什么？这是个很酷的例子，当我们得到一个 `Some`，
+我们可以匹配在里面且只从元组中抽取了字符串。所以没有必要来嵌套 `if let`语句在这里。
+我们用 `_` 是因为我们对元组的第一个元素不感兴趣。
 
 ```rust
     let ot = Some((2,"hello".to_string());
@@ -1258,8 +1248,7 @@ in the first part of the tuple.
     // we just borrowed the string, no 'destructive destructuring'
 ```
 
-An interesting problem happens when using `parse` (or any function which needs to work
-out its return type from context)
+当使用 `parse` 时会发生有趣的事情(或用了任何函数的返回值）
 
 ```rust
     if let Ok(n) = "42".parse() {
@@ -1267,8 +1256,7 @@ out its return type from context)
     }
 ```
 
-So what's the type of `n`? You have to give a hint somehow - what kind of integer? Is it
-even an integer?
+那么 `n` 的类型是什么呢? 你需要提供一个线索 —— 如什么类型的整数? 或它不是个整数?
 
 ```rust
     if let Ok(n) = "42".parse::<i32>() {
@@ -1276,18 +1264,16 @@ even an integer?
     }
 ```
 
-This somewhat non-elegant syntax is called the 'turbofish operator'.
-
-If you are in a function returning `Result`, then the question-mark operator provides a much
-more elegant solution:
+这是不太漂亮的语法被称为'turbofish operator'。
+如果你用函数返回了 `Result`，那么问号操作符可提供更优雅的解构方式:
 
 ```rust
     let n: i32 = "42".parse()?;
 ```
-However, the parse error needs to be convertible to the error type of the `Result`, which is a topic
-we'll take up later when discussing [error handling](6-error-handling.html).
+尽管如此，解析错误需要可转换成 `Result` 枚举的错误值，它是另外一个主题我们将在
+后续讨论 [error handling](6-error-handling.html).
 
-## Closures
+## Closures 闭包
 
 A great deal of Rust's power comes from _closures_. In their simplest form, they
 act like shortcut functions:
