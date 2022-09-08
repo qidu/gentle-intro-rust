@@ -1496,9 +1496,8 @@ assert_eq!(s, "world");
 
 ## The Three Kinds of Iterators 三种迭代器
 
-The three kinds correspond (again) to the three basic argument types. Assume we
-have a vector of `String` values. Here are the iterator types explicitly, and
-then _implicitly_, together with the actual type returned by the iterator.
+跟三种基本参数相相对着有三种迭代器。假如我们有一个字符串数组包含了 `String` 值。
+这里会有_显式_、_隐式_、真实类型的迭代器。
 
 ```rust
 for s in vec.iter() {...} // &String
@@ -1510,26 +1509,19 @@ for s in &vec {...} // &String
 for s in &mut vec {...} // &mut String
 for s in vec {...} // String
 ```
-Personally I prefer being explicit, but it's important to understand both forms,
-and their implications.
+我个人喜欢显式的，但理解两种迭代器形式及其含义也很重要。
 
-`into_iter` _consumes_ the vector and extracts its strings,
-and so afterwards the vector is no longer available - it has been moved. It's
-a definite gotcha for Pythonistas used to saying `for s in vec`!
+`into_iter` _消费_ 了数组并抽取它的字符串值，然后数组会变短 —— 值被move了。
+这正是Python里用到的 `for s in vec`!
 
- So the
-implicit form `for s in &vec` is usually the one you want, just as `&T` is a good
-default in passing arguments to functions.
+所以隐式形式 `for s in &vec` 是你真需要的，就像 `&T` 是好的传给函数的默认参数。
 
-It's important to understand how the three kinds works because Rust relies heavily
-on type deduction - you won't often see explicit types in closure arguments. And this
-is a Good Thing, because it would be noisy if all those types were explicitly
-_typed out_. However, the price of this compact code is that you need to know
-what the implicit types actually are!
+理解这三种类型如何工作是很重要的，因为Rust对类型推导很依赖 —— 你不会常在
+闭包参数中看到显式类型。这是好事，因为所有用到的类型都显式的_展现_出来将会
+非常的杂乱干扰。尽管如此，经凑代码的代价是你需要理解隐式类型实际是什么。
 
-`map` takes whatever value the iterator returns and converts it into something else,
-but `filter` takes a _reference_ to that value. In this case, we're using `iter` so
-the iterator item type is `&String`. Note that `filter` receives a reference to this type.
+`map` 接收迭代器返回和转换的任何值，但是 `filter` 值接收那些值的_引用_。这时，
+我们用 `iter` 使迭代器返回了类型是 `&String`。注意 `filter` 接收的是引用。
 
 ```rust
 for n in vec.iter().map(|x: &String| x.len()) {...} // n is usize
@@ -1541,11 +1533,10 @@ for s in vec.iter().filter(|x: &&String| x.len() > 2) { // s is &String
 }
 ```
 
-When calling methods, Rust will derefence automatically, so the problem isn't obvious.
-But `|x: &&String| x == "one"|` will _not_ work, because operators are more strict
-about type matching. `rustc` will complain that there is no such operator that
-compares `&&String` and `&str`. So you need an explicit deference to make that `&&String`
-into a `&String` which _does_ match.
+当调用方法时，Rust会自动解引用，所以问题不会很明显。
+但 `|x: &&String| x == "one"|` _不会_工作，因为等号操作符对类型匹配更严格。
+`rustc` 会报没有 `&&String` 与 `&str` 比较的操作符。所以你需要一个显式的解
+引用以使 `&&String` 变成 `&String` _得到_ 匹配。
 
 ```rust
 for s in vec.iter().filter(|x: &&String| *x == "one") {...}
@@ -1553,22 +1544,20 @@ for s in vec.iter().filter(|x: &&String| *x == "one") {...}
 for s in vec.iter().filter(|x| *x == "one") {...}
 ```
 
-If you leave out the explicit type, you can modify the argument so that the type of `s`
-is now `&String`:
+如果你没有使用显式类型，你可以修改参数以使类型 `s` 变成 `&String`:
 
 ```rust
 for s in vec.iter().filter(|&x| x == "one")
 ```
 
-And that's usually how you will see it written.
+这正是你会经常看到的写法。
 
-## Structs with Dynamic Data
+## Structs with Dynamic Data 有动态数据的结构体
 
-A most powerful technique is _a struct that contain references to itself_.
+一个有力的技术是 _一个结构体包含着指向自己的引用成员_。
 
-Here is the basic building block of a _binary tree_, expressed in C (everyone's
-favourite old relative with a frightening fondness for using power tools without
-protection.)
+这里有一个_二叉树_的基本模块，表达成C语言的风格（每个人带着惊恐的喜悦使用的无
+内存保护的威力的古老技术。）
 
 ```rust
     struct Node {
@@ -1578,19 +1567,17 @@ protection.)
     };
 ```
 
-You can not do this by _directly_ including `Node` fields, because then the size of
-`Node` depends on the size of `Node`... it just doesn't compute. So we use pointers
-to `Node` structs, since the size of a pointer is always known.
+你没法通过_直接_引入 `Node` 成员来实现这个，因为这样导致了 `Node` 的大小依赖着
+`Node`的大小... 没法计算。所以我们使用引用来指向 `Node` 结构体，因为引用指针的
+大小是固定的。
 
-If `left` isn't `NULL`, the `Node` will have a left pointing to another node, and so
-moreorless indefinitely.
+如果 `left` 不是 `NULL`，`Node` 将用左指针指向另一个节点，所以或多或少不确定。
 
-Rust does not do `NULL` (at least not _safely_) so it's clearly a job for `Option`.
-But you cannot just put a `Node` in that `Option`, because we don't know the size
-of `Node` (and so forth.)  This is a job for `Box`, since it contains an allocated
-pointer to the data, and always has a fixed size.
+Rust不会真有`NULL` (至少不_安全_) 所以很明显应该用 `Option`。但你也没法放个
+`Node` 到 `Option` 上，因为我们不知道Node的大小（同上理）。所以应该用 `Box`，
+因为它有一个分配的指针指向数据，它总是固定大小。
 
-So here's the Rust equivalent, using `type` to create an alias:
+所以下面是Rust的等价实现，用 `type` 来创建别名:
 
 ```rust
 type NodeBox = Option<Box<Node>>;
@@ -1602,9 +1589,9 @@ struct Node {
     right: NodeBox
 }
 ```
-(Rust is forgiving in this way - no need for forward declarations.)
+(Rust对此比较宽容 —— 不用提前声明类型)
 
-And a first test program:
+下面是第一个测试程序:
 
 ```rust
 impl Node {
@@ -1635,7 +1622,7 @@ fn main() {
     println!("arr {:#?}", root);
 }
 ```
-The output is surprisingly pretty, thanks to "{:#?}" ('#' means 'extended'.)
+打印出的内容也很好看，谢谢 "{:#?}" ('#' 表示 '扩展的'.)
 
 ```
 root Node {
@@ -1656,17 +1643,17 @@ root Node {
     )
 }
 ```
-Now, what happens when `root` is dropped? All fields are dropped; if the 'branches' of
-the tree are dropped, they drop _their_ fields and so on. `Box::new` may be the
-closest you will get to a `new` keyword, but we have no need for `delete` or `free`.
+现在，当 `root` 被废弃时发生了什么？所有的字段成员都被废弃了；如果
+树的 '分支' 被废弃，_它们_也依次类推的废弃自己的成员。`Box::new` 是
+你从 `new` 关键字中得到的最近的东西，但我们不需要调用 `delete` 和 `free`。
 
-We must now work out a use for this tree. Note that strings can be ordered:
-'bar' < 'foo', 'abba' > 'aardvark'; so-called 'alphabetical order'. (Strictly speaking, this
-is _lexical order_, since human languages are very diverse and have strange rules.)
+我们现在需要找出树的用法。注意字符串可以排序：
+'bar' < 'foo', 'abba' > 'aardvark'；所以称为 '字符序'. (严格讲，这是_词序_, 
+因为人类语言差异非常大且有奇怪的规则)
 
-Here is a method which inserts nodes in lexical order of the strings. We compare the new data
-to the current node - if it's less, then we try to insert on the left, otherwise try to insert
-on the right. There may be no node on the left, so then `set_left` and so forth.
+下面是一个能插入字符串词序节点的方法。我们将新数据与当前节点相比较 ——
+如果它小点，我们就将它插在左边，否则尝试插在右边。在还没有左边节点时，
+`set_left` 就结束否则继续。
 
 ```rust
     fn insert(&mut self, data: &str) {
@@ -1694,12 +1681,11 @@ on the right. There may be no node on the left, so then `set_left` and so forth.
     }
 ```
 
-Note the `match` - we're pulling out a mutable reference to the box, if the `Option`
-is `Some`, and applying the `insert` method. Otherwise, we need to create a new `Node`
-for the left side and so forth. `Box` is a _smart_ pointer; note that no 'unboxing' was
-needed to call `Node` methods on it!
+注意 `match` —— 我们提取出一个到box的可变引用，如果 `Option` 成员
+是 `Some`，那么调用 `insert` 方法。否则，我们为左边创建一个新 `Node`。
+`Box` 是 _智能_ 指针；注意没有 'unboxing' 操作在 `Node` 其他方法前!
 
-And here's the output tree:
+下面是树的输出:
 
 ```
 root Node {
@@ -1726,11 +1712,10 @@ root Node {
     )
 }
 ```
-The strings that are 'less' than other strings get put down the left side, otherwise
-the right side.
+'小于' 当前字符串的串被放在左边，否则放在右边。
 
-Time for a visit. This is _in-order traversal_ - we visit the left, do something on
-the node, and then visit the right.
+是时候访问它了。这是 _中序遍历_ —— 我们访问左边，做些操作，
+然后访问右边。
 
 ```rust
     fn visit(&self) {
@@ -1750,15 +1735,14 @@ the node, and then visit the right.
     // 'root'
     // 'two'
 ```
-So we're visiting the strings in order! Please note the reappearance of `ref` - `if let`
-uses exactly the same rules as `match`.
+所以我们按顺序访问了字符串！请注意又出现的 `ref` —— `if let`
+使用与 `match` 完全相同的规则。
 
 
-## Generic Structs
+## Generic Structs 泛型结构体
 
-Consider the previous example of a binary tree. It would be _seriously irritating_ to
-have to rewrite it for all possible kinds of payload.
-So here's our generic `Node` with its type parameter `T`.
+考虑前面二叉树的例子。如果需要针对所有数据类型重写它将是_令人生气_的。
+所以这是里我们的泛型 `Node` 类型参数是 `T`。
 
 ```rust
 type NodeBox<T> = Option<Box<Node<T>>>;
@@ -1771,9 +1755,8 @@ struct Node<T> {
 }
 ```
 
-The implementation shows the difference between the languages. The fundamental operation
-on the payload is comparison, so T must be comparable with `<`, i.e. implements `PartialOrd`.
-The type parameter must be declared in the `impl` block with its constraints:
+这个实现展现了语言间的不同。在数据上的基本操作是比较，所以T必须可以用 `<` 
+比较，如实现 `PartialOrd`。类型参数必须被声明为 `实现` 了对应的约束特性：
 
 
 ```rust
@@ -1820,11 +1803,10 @@ fn main() {
 }
 ```
 
-So generic structs need their type parameter(s) specified
-in angle brackets, like C++. Rust is usually smart enough to work out
-that type parameter from context - it knows it has a `Node<T>`, and knows
-that its `insert` method is passed `T`. The first call of `insert` nails
-down `T` to be `String`. If any further calls are inconsistent it will complain.
+所以泛型结构体需要它们的类型参数被指定在尖括号中，像C++。Rust常
+够聪明以从上下文推断出类型参数 —— 它知道自己有 `Node<T>`，并知道
+`insert` 方法传给了 `T`。第一次调用 `insert` 时推出 `T` 是e `String`。
+如果任何后续的调用类型不一致它将报错。
 
-But you do need to constrain that type appropriately!
+但你需要自己来约束合适的类型！
 
