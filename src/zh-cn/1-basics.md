@@ -838,10 +838,17 @@ fn main() {
     println!("slice is {:?}", slice);
 }
 ```
+那个小小的、非常重要的借用操作符 `&` 是把向量 _强制_ 转换成切片。
+这完全可以，是因为向量也管理一个数组，区别是这个数组是_动态_分配的。
 That little, so-important borrow operator `&` is _coercing_ the vector into a
 slice. And it makes complete sense, because the vector is also looking after an array of
 values, with the difference that the array is allocated _dynamically_.
 
+如果你用过动态语言，是时候谈点了。在系统语言中，分配内存有两种类型：栈上内存和堆上内存。
+在栈上分配内存是很快的，但栈有限制；典型的是内存大小限制在MB级。堆上的内存能到GB级，
+但分配内存相对耗时，且内存不用后需要主动释放。在号称有'内存管理'的语言中（如Java，Go，
+以及那些叫作'scripting'的语言）那些内存细节是用被称为垃圾回收的方便自治组件对你隐藏着的。
+一旦系统确认一些数据不再被其他引用，将会把这些数据内存释放回可用的内存池子里。
 If you come from a dynamic language, now is time for that little talk. In systems
 languages, program memory comes in two kinds: the stack and the heap. It is very fast
 to allocate data on the stack, but the stack is limited; typically of the order of
@@ -852,11 +859,18 @@ convenient municipal utility called the _garbage collector_. Once the system is 
 that data is no longer referenced by other data, it goes back into the pool
 of available memory.
 
+一般来说，这是值得付出的代价。与栈打交道是可怕的不安全，因为一旦你出错可能覆盖当前
+程序的返回地址，那你的程序将会丢脸的崩溃或（更糟）被人恶意攻破。
 Generally, this is a price worth paying. Playing with the stack is terribly unsafe,
 because if you make one mistake you can override the return address of the current
 function, and you die an ignominious death or (worse) got pwned by some guy living
 in his Mom's basement in Minsk.
 
+我写得第一个C程序（在DOS PC上）搞垮了整个电脑。Unix系统常表现得更好，程序进程崩溃
+时只报_段错误_。为什么这比Rust（或Go）程序pannicking严重？因为panic发生在原始程序
+中发生，而不是在程序变得毫无希望的迷惑消耗掉你全部精力时。Pannic是_内存安全的_因为
+它们在任何内存非法访问前出现。这却是C语言的安全问题根源，因为所有的内存访问都是不
+安全的且狡诈的攻击者可以利用这个薄弱环节。
 The first C program I wrote (on a DOS PC)
 took out the whole computer. Unix systems always behaved better, and only the process died
 with a _segfault_. Why is this worse than a Rust (or Go) program panicking?
@@ -866,9 +880,15 @@ because they happen before any illegal access to memory. This is a common cause 
 security problems in C, because all memory accesses are unsafe and a cunning attacker
 can exploit this weakness.
 
+Panick听起来严重且意外，但Rust的panic是有结构的 —— 栈是_轻松的_就像普通异常。
+所有分配的对象将被废弃，并将生成一个调用过程。
 Panicking sounds desperate and unplanned, but Rust panics are structured - the stack is _unwound_
 just as with exceptions. All allocated objects are dropped, and a backtrace is generated.
 
+垃圾回收的缺点是什么？首先它会浪费内存，这在那些越来越主宰世界的小的嵌入式芯片会要紧。
+其二它将决定在最差可能性时清理内存只能立刻开始。那些嵌入式系统需要实时响应('real-time')
+且不能容忍非计划的内存清理打断任务。最优雅的动态语言Lua的首席设计者Roberto Ierusalimschy
+曾说他不喜欢乘坐在依靠有垃圾回收的软件的飞机上。
 The downsides of garbage collection? The first is that it is wasteful of memory, which
 matters in those small embedded microchips which increasingly rule our world. The
 second is that it will decide, at the worst possible time, that a clean up must happen
@@ -879,16 +899,22 @@ cleaning. Roberto Ierusalimschy, the chief designer of Lua (one of the most eleg
 dynamic languages ever) said that he would not like to fly on an airplane that
 relied on garbage-collected software.
 
+回到向量：当一个向量被修改或创建，在堆上分配了它并成为那片内存的_主人_。切片_借用_
+了向量的内存。当向量被_废弃_时，它会释放内存。
 Back to vectors: when a vector is modified or created, it allocates from the heap and becomes
  the _owner_ of that memory. The slice _borrows_ the memory from the vector.
 When the vector dies or _drops_, it lets the memory go.
 
-## Iterators
+## Iterators 迭代器
 
+截至目前我们探讨了这么多却没有提及Rust的一个关键谜语 —— 迭代器。
+使用了范围的for-loop就用到了迭代器(`0..n`实际上类似于Python 3的`range`函数）。
 We have got so far without mentioning a key part of the Rust puzzle - iterators.
 The for-loop over a range was using an iterator (`0..n` is actually similar to the
 Python 3 `range` function).
 
+迭代器很容易被定义得不正式。它是一个有能返回`Option`值的`next`方法的'对象'。
+当返回值还不是`None`时，我们可继续调用`next`:
 An iterator is easy to define informally. It is an 'object' with a `next` method
 which returns an `Option`. As long as that value is not `None`, we keep calling
 `next`:
@@ -903,11 +929,14 @@ fn main() {
     assert_eq!(iter.next(), None);
 }
 ```
-And that is exactly what `for var in iter {}` does.
+这就是那 `for var in iter {}` 的作用。
 
+定义一个for-loop看起来不是个高效的方式，但`rustc`在release模式上做了疯狂的优化，
+让它与`while`循环一样快。
 This may seem an inefficient way to define a for-loop, but `rustc` does crazy-ass
 optimizations in release mode and it will be just as fast as a `while` loop.
 
+下面是第一次尝试迭代一个数组：
 Here is the first attempt to iterate over an array:
 
 ```rust
@@ -919,6 +948,7 @@ fn main() {
     }
 }
 ```
+编译失败，但提示有用：
 which fails, but helpfully:
 ```
 4 |     for i in arr {
@@ -928,7 +958,7 @@ which fails, but helpfully:
    `.iter()` or a similar method
   = note: required by `std::iter::IntoIterator::into_iter`
 ```
-
+遵守`rustc`的建议，用以下方式就可以了。
 Following `rustc`'s advice, the following program works as expected.
 
 ```rust
@@ -946,10 +976,14 @@ fn main() {
     }
 }
 ```
+实际上，用上面的方式去迭代一个数组或切片会比`for i in 0..slice.len() {}`用更有效，
+因为Rust不需要着魔的检查每个索引操作。
 In fact, it is more efficient to iterate over an array or slice this way
 than to use `for i in 0..slice.len() {}` because Rust does not have to obsessively
 check every index operation.
 
+我们前面有个例子来加和一组整数。它引入了`mut`变量和一个循环。这里是符合语言习惯
+的、专业的实现：
 We had an example of summing up a range of integers earlier. It involved a `mut`
 variable and a loop. Here's the _idiomatic_, pro-level way of doing the sum:
 
@@ -963,15 +997,17 @@ fn main() {
     println!("sum was {}", sum);
 }
 ```
-
+注意，这是一个例子关于你需要显式使用变量_类型_，因除此之外Rust没有足够的信息。
+这里我们用了不同整数类型来加和，没问题。（创建新变量用了已有名称。）
 Note that this is one of those cases where you need to be explicit about
 the _type_ of the variable, since otherwise Rust doesn't have enough information.
 Here we do sums with two different integer sizes, no problem. (It is also no
 problem to create a new variable of the same name if you run out of names to
 give things.)
 
-With this background, some more of the [slice methods](https://doc.rust-lang.org/std/primitive.slice.html)
-will make more sense.
+有了相关背景知识，了解更多 [slice methods](https://doc.rust-lang.org/std/primitive.slice.html)
+会更有意义。
+
 (Another documentation tip; on the right-hand side of every doc page there's a '[-]' which you can
 click to collapse the method list. You can then expand the details of anything
 that looks interesting. Anything that looks too weird, just ignore for now.)
