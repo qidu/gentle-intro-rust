@@ -1,24 +1,22 @@
-# Filesystem and Processes
+# 文件系统和进程
 
-## Another look at Reading Files
+## 另一个角度看看读取文件 
 
-At the end of Part 1, I showed how to read a whole file into a string. Naturally
-this isn't always such a good idea, so here is how to read a file line-by-line.
+在Part 1的结尾，我展示了如何读取整个文件内容到一个字符串。自然这并
+不总是一个好的办法，所以这类展示如何一行一行的读文件。
 
-`fs::File` implements `io::Read`, which is the trait for anything readable.
-This trait defines a `read` method which will fill a slice of `u8` with bytes -
-this is the only _required_ method of the trait, and you get some _provided_ methods
-for free, much like with `Iterator`.  You can use `read_to_end` to fill a vector of
-bytes with contents from the readable, and `read_to_string` to fill a string - which
-must be UTF-8 encoded.
+`fs::File`实现了`io::Read`，它是任何可读类的trait。它定义了`read`方法能
+用字节填充一个`u8`切片 —— 这是那个trait唯一 _要求_ 的方法，你会得到一些
+_现成_ 的方法，就像`Iterator`一样。你能通过`read_to_end`用可读对象的字节
+来填充一个字节vector，且通过`read_to_string`来填充一个字符串 —— 必须是
+UTF-8编码的。
 
-This is a 'raw' read, with no buffering. For buffered reading there is the
-`io::BufRead` trait which gives us `read_line` and a `lines` iterator.
-`io::BufReader` will provide an implementation of `io::BufRead` for _any_ readable.
+这是个'raw`读操作，没有缓冲。为了可缓冲的读可以用`io::BufRead` trait它能给
+我们`read_line`和一个`lines`迭代器。`io::BufReader`为 _任何_ 可读对象实现了`io::BufRead`。
 
-`fs::File` _also_ implements `io::Write`.
+`fs::File` _也_ 实现了 `io::Write`.
 
-The easiest way to make sure all these traits are visible is `use std::io::prelude::*`.
+最简单的方法是用`use std::io::prelude::*`来确认那些traits是可见的。
 
 ```rust
 use std::fs::File;
@@ -38,19 +36,15 @@ fn read_all_lines(filename: &str) -> io::Result<()> {
 }
 ```
 
-The `let line = line?` may look a bit strange. The `line` returned by the
-iterator is actually an `io::Result<String>` which we unwrap with `?`.
-Because things _can_ go wrong during this iteration - I/O errors, swallowing
-a chunk of bytes that aren't UTF-8, and so forth.
+语句 `let line = line?` 看起来有点奇怪。迭代器的返回值`line` 实际上是个 `io::Result<String>` 
+它用操作符 `?`来解构值。因为迭代中 _可能_ 会遇到错误 —— 如I/O错误，读到非UTF-8的块
+等等。
 
-`lines` being an iterator, it is straightforward to read a file into a vector
-of strings using `collect`, or print out the line with line numbers using the
-`enumerate` iterator.
+`lines` 是一个迭代器，在用`collect`读一个文件字符串到vector时它很直观，或者用`enumerate`
+迭代器带这行号打印出每一个行内容。
 
-It isn't the most efficient way to read all the lines, however, because a new
-string is allocated for each line. It is more efficient to use `read_line`, although
-more awkward. Note that the returned line includes the linefeed, which
-can be removed using `trim_right`.
+读取所有的行并不是高效的方式，因为读每行时都分配了新字符串。使用`read_line`是更高效
+的方式，更不方便。注意返回行包含了换行符，能用`trim_right`来去除。
 
 ```rust
     let mut reader = io::BufReader::new(file);
@@ -63,21 +57,19 @@ can be removed using `trim_right`.
         buf.clear();
     }
 ```
+这就完全很少分配内存，因为 _清理_ 缓冲字符串而不是释放它的内存；一旦字符串有足够
+容量，不会发生新的分配。
 
-This results in far less allocations, because _clearing_ that string does not free its
-allocated memory; once the string has enough capacity, no more allocations will take
-place.
+这也是我们用block来控制借用范围的例子。`line`是从`buf`里借用的，借用过程必须在我们
+修改`buf`之前结束。再次强调，Rust在尝试阻止我们做些蠢事，比如在清理缓冲 _之后_
+访问`line`。(借用检查器有时候会有限制。Rust负责得到'非词法的生命周期'，那么它将分析
+代码看看`line`并没在`buf.clear()`之后使用。)
 
-This is one of those cases where we use a block to control a borrow. `line` is
-borrowed from `buf`, and this borrow must finish before we modify `buf`.  Again,
-Rust is trying to stop us doing something stupid, which is to access `line` _after_
-we've cleared the buffer. (The borrow checker can be restrictive sometimes.
-Rust is due to get 'non-lexical lifetimes', where
-it will analyze the code and see that `line` isn't used after `buf.clear()`.)
+这并不特别完美。我不能给你一个合适的迭代器来返回一个缓冲的引用，但我可以给你一些
+_看起来像_ 迭代器的东西。
 
-This isn't very pretty. I cannot give you a proper iterator that returns references
-to a buffer, but I can give you something that _looks_ like an iterator.
-
+第一次定义泛型结构体；参数`R`的类型是'任何实现了Read trait的类型'。它包含了reader和
+buffer能让我们来借用。
 First define a generic struct;
 the type parameter `R` is 'any type that implements Read'. It contains the reader
 and the buffer which we are going to borrow from.
@@ -100,15 +92,12 @@ impl <R: Read> Lines<R> {
     ...
 }
 ```
+然后实现`next`方法。它返回一个`Option` —— 仅像一个迭代器，当返回`None`
+时迭代器结束。因为`read_line`也许会失败所以返回类型是`Result`，我们
+_从不扔出错误_。所以当它失败时，我们包装它的错误到`Some<Result>`中。
+另外，它也许会读到0字节，这代表文件的自然结束 —— 不是个错误，只是`None`。
 
-Then the `next` method. It returns an `Option` - just like an iterator, when it
-returns `None` the iterator finishes. The returned type is a `Result` because
-`read_line` might fail, and we _never throw errors away_. So if fails, we
-wrap up its error in a `Some<Result>`.  Otherwise, it may have read zero bytes,
-which is the natural end of the file - not an error, just a `None`.
-
-At this point, the buffer contains the line with a linefeed (`\n') appended.
-Trim this away, and package up the string slice.
+在这点，缓冲里添加有带着换行符('\n')的内容行。修剪掉它，然后打包字符切片返回。
 
 ```rust
     fn next<'a>(&'a mut self) -> Option<io::Result<&'a str>>{
@@ -124,18 +113,16 @@ Trim this away, and package up the string slice.
         }
     }
 ```
-Now, note how the lifetimes work. We need an explicit lifetime because Rust will never
-allow us to hand out borrowed string slices without knowing their lifetime. And here
-we say that the lifetime of this borrowed string is within the lifetime of `self`.
+现在，注意生命周期是怎么发挥作用的。我们需要一个显式的生命周期，因为Rust从
+不允许我们在不知道生命周期的情况下传出字符切片。那么这里我们说这个借用的字符串
+的生命周期不会长于`self`对象。
 
-And this signature, with the lifetime, is incompatible with the interface of `Iterator`.
-But it's easy to see problems if it were compatible; consider `collect` trying to make
-a vector of these string slices. There's no way this could work, since they're all
-borrowed from the same mutable string! (If you had read _all_ the file into a string, then
-the string's `lines` iterator can return string slices because they are all borrowed from
-_distinct_ parts of the original string.)
+用这个签名，表示该生命周期，与`Iterator`的接口不兼容。但如果兼容的话很容易看出问题；
+考虑`collect`尝试从那些字符串切片里生成一个vector。这不可能，因为它们都是
+从同一个可修改的字符串中产生！(如果你读了 _全部_ 文件到一个字符串，那么字符串的
+`lines`迭代器能返回字符串切片因为它们都是从原始字符串的 _不同部分_ 借用的。)
 
-The resulting loop is much cleaner, and the file buffering is invisible to the user.
+这会导致处理结果的循环特别容易，文件缓冲对用户不可见。
 
 ```rust
 fn read_all_lines(filename: &str) -> io::Result<()> {
@@ -151,8 +138,7 @@ fn read_all_lines(filename: &str) -> io::Result<()> {
 }
 ```
 
-You can even write the loop like this, since the explicit match can pull out the
-string slice:
+你甚至可以这么写loop，因为显式匹配能取出字符切片:
 
 ```rust
     while let Some(Ok(line)) = lines.next() {
@@ -160,14 +146,17 @@ string slice:
     }
 ```
 
+虽然诱人，但这里你正抛出一个可能的错误；这个循环将静默的在遇到错误时结束。
+特别是，它将在Rust第一次不能读来的行转换成UTF-8时结束。在不正式的代码里
+这么做没问题，但在生产代码里这很糟！
 It's tempting, but you are throwing away a possible error here; this loop will
 silently stop whenever an error occurs. In particular, it will stop at the first place
 where Rust can't convert a line to UTF-8.  Fine for casual code, bad for production code!
 
-## Writing To Files
+## 写入文件
 
-We met the `write!` macro when implementing `Debug` - it also works with anything
-that implements `Write`. So here's a another way of saying `print!`:
+我们在实现`Debug`时遇到过`write!`宏 —— 它对任何实现了`Write`的类也适用。所以
+这里有另一个实现`println!`的方法:
 
 ```rust
     let mut stdout = io::stdout();
@@ -175,18 +164,15 @@ that implements `Write`. So here's a another way of saying `print!`:
     write!(stdout,"answer is {}\n", 42).expect("write failed");
 ```
 
-If an error is _possible_, you must handle it. It may not be
-very _likely_ but it can happen. It's usually fine, because if you
-are doing file i/o you should be in a context where `?` works.
+如果一个error是 _可能的_，你必须处理它。它也许 _不太可能_ 但也还是有可能发生。
+这很正常，因为你在处理文件I/O你应该在操作符`?`能用的上下文中。
 
-But there is a difference: `print!` locks stdout for each write. This is usually
-what you want for output, because without that locking multithreaded
-programs can mix up that output in interesting ways. But if you are pumping out
-a lot of text, then `write!` is going to be faster.
+但这里有个区别：`println!` 在每次写出时锁住stdout。这常正是你希望的输出，
+因为若不加锁多线程程序将会产生混合输出。但如果你要一次输出很多文本，
+那么`write!`将更快。
 
-For arbitrary files we need `write!`. The
-file is closed when `out` is dropped at the end of `write_out`, which is
-both convenient and important.
+对我们需要`write!`的任意文件，在`write_out`调用结束`out`被废弃时文件也会关闭，
+这既方便又重要。
 
 ```rust
 // file6.rs
@@ -204,25 +190,19 @@ fn main() {
   write_out("test.txt").expect("write failed");
 }
 ```
-If you care about performance, you need to know that Rust files are unbuffered
-by default. So each little write request goes straight to the OS, and this is
-going to be significantly slower. I mention this because this default is different
-from other programming languages, and could lead to the shocking discovery that Rust
-can be left in the dust by scripting languages!
-Just as with `Read` and `io::BufReader`, there is `io::BufWriter` for
-buffering any `Write`.
+如果你在意性能，你需要意识到Rust文件默认是不缓冲的。所以每写一行都直接
+传给操作系统，这将非常慢。我提这个是因为这个默认方式与其他语言是不同的，
+会导致震惊误解认为Rust远比不上脚本语言！
+通过`Read`和`io::BufReader`，及用`io::BufWriter`来有缓冲的`Write`。
 
-## Files, Paths and Directories
+## 文件，路径和目录 
 
-Here is a little program for printing out the Cargo directory on a machine. The
-simplest case is that it's '~/.cargo'. This is a Unix shell expansion,
-so we use `env::home_dir` because it's cross-platform. (It might fail, but a
-computer without a home directory isn't going to be hosting Rust tools anyway.)
+这里有个打印本机Cargo目录的小型程序。最简单的目录例子是'~/.cargo'。这是
+Unix shell的展开，因为是跨平台的我们用`env::home_dir`。(也许访问失败，
+但一台电脑若没有home目录就没法保存Rust的工具链。)
 
-We then create a [PathBuf](https://doc.rust-lang.org/std/path/struct.PathBuf.html)
-and use its `push` method to build up the full file path from its _components_.
-(This is much easier than fooling around with '/','\\' or whatever, depending on
-the system.)
+我们可以创建一个 [PathBuf](https://doc.rust-lang.org/std/path/struct.PathBuf.html)
+并用其`push`方法和 _组件_ 来构建完整的文件路径。(这容易混淆在取决于系统的'/'和'\\'上。)
 
 ```rust
 // file7.rs
@@ -240,16 +220,12 @@ fn main() {
     }
 }
 ```
-A `PathBuf` is like `String` - it owns a growable set of characters, but with methods
-specialized to building up paths.  Most of its functionality however comes from
-the borrowed version `Path`, which is like `&str`.  So, for instance, `is_dir` is
-a `Path` method.
+`Pathbuf`就像`String` —— 它有个可增长的字符集和，且有特定的方法来构建paths。
+它大多数方法来自于借用的`Path`，就像`&str`，例如，`is_dir`就是`Path`的方法。
 
-This might sound suspiciously like a form of inheritance, but the magic [Deref](https://doc.rust-lang.org/book/deref-coercions.html)
-trait works differently. It works just like it does with `String/&str` -
-a reference to `PathBuf` can be _coerced_ into a reference to `Path`.
-('Coerce' is a strong word, but this really
-is one of the few places where Rust does conversions for you.)
+这也许听起来是可疑的就像某种形式的遗产，但这里的魔术[Deref](https://doc.rust-lang.org/book/deref-coercions.html)
+trait 功能不同。它就像与`String/&str`一起发挥作用 —— `PathBuf` 的引用被 _强制_ 转换成`Path`的引用。
+('强制'是个强大的词汇，但这确实是Rust帮你做转换的少数地方。)
 
 ```rust
 fn foo(p: &Path) {...}
@@ -257,37 +233,29 @@ fn foo(p: &Path) {...}
 let path = PathBuf::from(home);
 foo(&path);
 ```
+`PathBuf` 与 `OsString` 有亲密的关系，它代表了我们能从系统直接得到的字符串。
+(与`OsString/&OsStr`有对应关系。)
 
-`PathBuf` has an intimate relationship with `OsString`, which represents strings we get
-directly from the system. (There is a corresponding `OsString/&OsStr` relationship.)
+这些字符串并不 _确保_ 就是UTF-8编码的！
+真实情况是 [complicated matter](https://news.ycombinator.com/item?id=10519932)，
+特别看看'Why are they so hard?‘的回答。总之，首先有好多年的ASCII编码历史，
+及多种其他语言的特定编码。其次，人类语言很复杂。例如有些是 _5_ 个Unicode
+编码！
 
-Such strings are not _guaranteed_ to be representable as UTF-8!
-Real life is a [complicated matter](https://news.ycombinator.com/item?id=10519932),
-particularly see the answer to 'Why are they so hard?'.  To summarize, first there are
-years of ASCII legacy coding, and multiple special encodings for other languages. Second,
-human languages are complicated. For instance 'noël' is _five_ Unicode code points!
+真实情况是大多数现代操作系统的文件名会是Unicode(Unix上的UTF-8和Windows上的
+UTF-16),其他不是。但Rust必须严格处理那些极少情况。例如`Path`有个`as_os_str`
+方法能返回一个`&OsStr`，但`to_str`方法只返回`Option<&str>`。不总是这样！
 
-It's true that most of the time
-with modern operating systems file names will be Unicode (UTF-8 on the Unix side, UTF-16
-for Windows), except when they're not. And Rust must handle that possibility
-rigorously. For instance,
-`Path` has a method `as_os_str` which returns a `&OsStr`, but the `to_str` method
-returns an `Option<&str>`. Not always possible!
+人们在这点会遇到麻烦因为他们太常依赖'string'和'character'作为必要的抽象。爱因斯坦
+会说，一个编程语言应该尽可能的简单，但不用更简化。一门系统语言 _需要_ `String/&str`
+差别(拥有和借用的差别: 也很方便) 且如果它希望标准化Unicode字符串那么也需要处理
+其他非Unicode的文本格式 —— 因此有 `OsString/&OsStr`。注意这里操作系统相关的字符串
+类型并有string类型的接口，准确说我们并不知道它们的编码方式。
 
-People have trouble at this point because they have become too attached to 'string' and
-'character' as the only necessary abstractions.  As Einstein could have said, a programming language
-has to be as simple as possible, but no simpler. A systems language _needs_ a
-`String/&str` distinction (owned versus borrowed: this is also very convenient)
-and if it wishes to standardize on Unicode strings then it needs another type to handle
-text which isn't valid Unicode - hence `OsString/&OsStr`. Notice that there aren't
-any interesting string-like methods for these types, precisely because we don't know the
-encoding.
+但人们习惯于把文件名当作字符串处理，这就是为什么Rust用`PathBuf`及对应方法
+来简化处理文件名的原因。
 
-But, people are used to processing filenames as if they were strings, which is why
-Rust makes it easier to manipulate file paths using `PathBuf` methods.
-
-You can `pop` to successively remove path components. Here we start with the
-current directory of the program:
+你可以接着`pop`来删除部分路径。这里我们从当前目录开始:
 
 ```rust
 // file8.rs
@@ -310,9 +278,9 @@ fn main() {
 // /
 ```
 
-Here's a useful variation. I have a program which searches for a configuration file,
-and the rule is that it may appear in any subdirectory of the current directory.
-So I create `/home/steve/rust/config.txt` and start this program up in `/home/steve/rust/gentle-intro/code`:
+这是个有用的变化。我有个程序来搜索配置文件，规则就是它们可能出现在当前目录
+和任何子目录。
+如我创建配置在`/home/steve/rust/config.txt` 而程序启动在`/home/steve/rust/gentle-intro/code`:
 
 ```rust
 // file9.rs
@@ -336,11 +304,10 @@ fn main() {
 // gotcha /home/steve/rust/config.txt
 ```
 
-This is pretty much how __git__ works when it wants to know what the current repo is.
+这正是当我们想知道当前仓库是什么时 __git__ 如何工作的。
 
-The details about a file (its size, type, etc) are called its _metadata_. As always,
-there may be an error - not just 'not found' but also if we don't have permission
-to read this file.
+一个文件的细节(如大小，类型等)被称为 _元数据_。就像常碰见的文件访问错误 
+—— 并不仅是'not found' 也常因无权限读文件报错。
 
 ```rust
 // file10.rs
@@ -366,18 +333,16 @@ fn main() {
 // modified Ok(SystemTime { tv_sec: 1483866529, tv_nsec: 600495644 })
 ```
 
-The length of the file (in bytes) and modified time are straightforward to interpret.
-(Note we may not be able to get this time!)  The file type has methods `is_dir`,
-`is_file` and `is_symlink`.
+文件的长度(字节)和修改时间太直接不介绍。(注意也许我们获取不到!) 文件类型
+有 `is_dir`，`is_file` 和 `is_symlink`方法。
 
-`permissions` is an interesting one. Rust strives to be cross-platform, and so it's
-a case of the 'lowest common denominator'. In general, all you can query is whether
-the file is read-only - the 'permissions' concept is extended in Unix and encodes
-read/write/executable for user/group/others.
+`permissions`是个有趣的方法。Rust挣扎着要跨平台，这是'最小公分母'的例子。
+一般来说，你能查询的只是文件是否只读 —— 'permissions'概念在Unix上包括
+对不同用户/组/其他的读/写/可执行权限。
 
-But, if you are not interested in Windows, then bringing in a platform-specific trait will give
-us at least the permission mode bits. (As usual, a trait only kicks in when it is
-visible.) Then, applying the program to its own executable gives:
+但如果你对Windows不感兴趣，那么通过一个平台有关的trait来桥接最少可以给
+我们提供权限模式细节。(像往常，trait只对什么是可见的起作用。) 那么获取这个
+程序字节的可执行权限如下:
 
 ```rust
 use std::os::unix::fs::PermissionsExt;
@@ -385,16 +350,15 @@ use std::os::unix::fs::PermissionsExt;
 println!("perm {:o}",data.permissions().mode());
 // perm 755
 ```
-(Note '{:o}' for printing out in _octal_)
+(注意用 '{:o}' 来打印出 _8 进制_)
 
-(Whether a file is executable on Windows is determined by its extension. The executable
-extensions are found in the `PATHEXT` environment variable - '.exe','.bat' and so forth).
+(一个文件是否可执行在Windows上取决于后缀名。可执行的后缀名在`PATHEXT` 环境
+变量里 —— '.exe', '.bat'等)
 
-`std::fs` contains a number of useful functions for working with files, such as copying or
-moving files, making symbolic links and creating directories.
+`std::fs` 包含了一组有用的文件函数工作，如拷贝或移动，创建软链接和创建目录。
 
-To find the contents of a directory, `std::fs::read_dir` provides an iterator.
-Here are all files with extension '.rs' and size greater than 1024 bytes:
+为找到目录内容，`std::fs::read_dir` 提供了一个迭代器。这里有读取所有'.rs'后缀名
+和大于1024字节文件的例子:
 
 ```rust
 fn dump_dir(dir: &str) -> io::Result<()> {
@@ -419,37 +383,31 @@ fn dump_dir(dir: &str) -> io::Result<()> {
 // ./new-sexpr.rs length 7719
 ```
 
-Obviously `read_dir` might fail (usually 'not found' or 'no permission'), but
-also getting each new entry might fail (it's like the `lines` iterator over a buffered
-reader's contents).  Plus, we might not be able to get the metadata corresponding to
-the entry.  A file might have no extension, so we have to check for that as well.
+明显`read_dir`也许失败(常如'not found' 和 'no permission')，但得到每个entry也可能
+失败(就像读一个有缓冲Reader时的`lines`迭代器)。此外，我们也许获取不到
+某个entry的metadata。一个文件也许没后缀名，所以都需要检查。
 
-Why not just an iterator over paths? On Unix this is the way the `opendir` system call works,
-but on Windows you cannot iterate over a directory's contents without getting the
-metadata. So this is a reasonably elegant compromise that allows cross-platform
-code to be as efficient as possible.
+为什么不用迭代器便利目录？在Unix上就是`opendir`系统调用的工作方式，
+但在Windows上你不能在得到metadata前迭代目录内容。所以这是个合理的优雅的
+妥协以让跨平台代码尽可能有效工作。
 
-You can be forgiven for feeling 'error fatigue' at this point. But please note that
-the _errors always existed_ - it's not that Rust is inventing new ones. It's just
-trying hard to make it impossible for you to ignore them.  Any operating system call
-may fail.
+你在这里可能忘记感受'错误疲劳'。但请注意 _错误无处不在_ —— 这不是Rust在
+发明新东西。它只是努力来尽可能的让你不处理那些错误。任何操作系统调用
+可能会失败的。
 
-Languages like Java and Python throw exceptions; languages like Go and Lua return two
-values, where the first is the result and the second is the error: like Rust it is
-considered bad manners for library functions to raise errors. So there is a lot
-of error checking and early-returns from functions.
+在Java和Python等语言会抛出异常；Go和Lua语言会返回2个值，第一个是结果
+而第二个是错误: 就像Rust让函数库返回错误一样不是好方式。所以在函数中有
+很多错误检查和提前返回。
 
-Rust uses `Result` because it's either-or: you cannot get both a result and an error.
-And the question-mark operator makes handling errors much cleaner.
+Rust使用`Result`是因为它是或者：你不能同时得到一个结果和错误。
+用问号操作符来处理错误就很干净。
 
-## Processes
+## Processes 进程
 
-A fundamental need is for programs to run programs, or to _launch processes_.
-Your program can _spawn_ as many child processes it likes, and as the name
-suggests they have a special relationship with their parent.
+程序的基本目的是为了运行自己，或 _启动进程_。你的程序可以生成很多子进程，
+就像名称表示的它们与父进程有特殊关系。
 
-To run a program is straightforward using the `Command` struct, which builds up
-arguments to pass to the program:
+运行程序可以直接使用`Command` struct，它能构建参数传递给程序：
 
 ```rust
 use std::process::Command;
@@ -465,32 +423,27 @@ fn main() {
 // rustc 1.15.0-nightly (8f02c429a 2016-12-15)
 // cool true code 0
 ```
-So `new` receives the name of the program (it will be looked up on `PATH` if not
-an absolute filename), `arg` adds a new argument, and `status` causes it to be run.
-This returns a `Result`, which is `Ok` if the program actually run, containing an
-`ExitStatus`. In this case, the program succeeded, and returned an exit code 0. (The
-`unwrap` is because we can't always get the code if the program was killed by
-a signal).
+所以`new`接收了程序名(如果不是绝对地址它将在`PATH`里找程序)，`arg`添加
+一个新参数，而`status`启动该程序。这会返回一个`Result`，如果程序运行起来
+将是`Ok`，包含了一个`ExitStatus`。这种情况下程序运行成功并以code 0退出。
+(用`unwrap`是因为我们不一定总是得到code如程序被用信号杀掉时)。
 
-If we change the `-V` to `-v` (an easy mistake) then `rustc` fails:
+如果我们修改`-V`为`-v`(是简单错误)那么`rustc`会失败:
 
 ```
 error: no input filename given
 
 cool false code 101
 ```
+所以有三种可能性:
 
-So there are three possibilities:
+  - 程序不存在，坏文件，或不允许执行
+  - 程序运行，但不成功 —— 退出时为非0状态
+  - 程序运行，以0状态结束。执行成功！
 
-  - program didn't exist, was bad, or we were not allowed to run it
-  - program ran, but was not successful - non-zero exit code
-  - program ran, with zero exit code. Success!
+默认情况，程序的标准输出和标准错误流都在终端窗口。
 
-By default, the program's standard output and standard error streams
-go to the terminal.
-
-Often we are very interested in capturing that output, so there's the `output`
-method.
+我常对捕获输出内容感兴趣，所以可用用`output`方法。
 
 ```rust
 // process2.rs
@@ -510,24 +463,20 @@ fn main() {
 // ok!
 // len stdout 44 stderr 0
 ```
+由于用了`status`方法我们的程序将阻塞到子进程结束，然后我们得到三个东西
+—— 执行状态，标准输出内容，标准错误内容。
 
-As with `status` our program blocks until the child process is finished, and we get
-back three things - the status (as before), the contents of stdout and the contents
-of stderr.
+捕获的输出是简单 `Vec<u8>`字节。回想前面我们说从操作系统接收的字符串不
+保证是UTF-8编码的。_甚至_ 我们没法确保它是字符串 —— 程序也许输出任意二进制
+数据。
 
-The captured output is simply `Vec<u8>` - just bytes.  Recall we have no guarantee
-that data we receive from the operating system is a properly encoded UTF-8 string. In
-fact, we have no guarantee that it _even_ is a string - programs may return arbitrary
-binary data.
+如果我们很确定输出是UTF-8，那么用`String::from_utf8`将那些vector或字节转换
+成字符串 —— 它将返回`Result` 因为转换也许会失败。
+一个更草率的函数是 `String::from_utf8_lossy` ，它将充分尝试转换并插入Unicode
+标记来替换失败的字节。
 
-If we are pretty sure the output is UTF-8, then `String::from_utf8` will convert those
-vectors or bytes - it returns a `Result` because this conversion may not succeed.
-A more sloppy function is `String::from_utf8_lossy` which will make a good attempt at
-conversion and insert the invalid Unicode mark � where it failed.
-
-Here is a useful function which runs a program using the shell. This uses the usual
-shell mechanism for joining stderr to stdout. The name of the shell is different
-on Windows, but otherwise things work as expected.
+这里有个有用的程序将用shell运行一个程序。这是用了常规shell机制将stderr转发
+到stdout。Windows上的shell名称不同，但其他功能如预期。
 
 ```rust
 fn shell(cmd: &str) -> (String,bool) {
@@ -545,24 +494,19 @@ fn shell(cmd: &str) -> (String,bool) {
     )
 }
 
-
 fn shell_success(cmd: &str) -> Option<String> {
     let (output,success) = shell(cmd);
     if success {Some(output)} else {None}
 }
 ```
+我剪掉了从右边开始任何空格所以如果你调用`shell("which rustc")`将得到一个
+不含任何结束符的路径。
 
-I'm trimming any whitespace from the right so that if you said `shell("which rustc")`
-you will get the path without any extra linefeed.
+你可以通过`Process`并用 `current_dir`方法或环境变量`env`来指定目录控制一个程序的启动。
 
-You can control the execution of a program launched by `Process`
-by specifying the directory it will run
-in using the `current_dir` method and the environment variables it sees using `env`.
-
-Up to now, our program simply waits for the child process to finish. If you use
-the `spawn` method then we return immediately, and must explicitly wait for it to
-finish - or go off and do something else in the meantime!  This example also
-shows how to suppress both standard out and standard error:
+截至目前，你的程序简单的等着子进程结束。如果你用了`swawn`方法那主程序将立即结束，
+所以必须显式的等待子进程 —— 或在此期间做点别的事！下面的例子展示了如何将标准输出
+和错误压缩在一起:
 
 ```rust
 // process5.rs
@@ -579,22 +523,18 @@ fn main() {
     println!("res {:?}", res);
 }
 ```
+默认情况，子进程'继承'了父进程的标准输入输出。这里，我们重定向子进程的输出
+到'nowhere'。它等价于在Unix shell里用`> /dev/null 2> /dev/null`。
 
-By default, the child 'inherits' the standard input and output of the parent. In this case,
-we redirect the child's output handles into 'nowhere'. It's equivalent to saying
-`> /dev/null 2> /dev/null` in the Unix shell.
+现在，也可能在Rust里用shell(`sh` 或 `cmd`) 来实现那些功能。但上面的方式你可以
+得到创建进行的完整编程控制。
 
-Now, it's possible to do these things using the shell (`sh` or `cmd`) in Rust.
-But this way you get full programmatic control of process creation.
+例如，如果我们只用 `.stdout(Stdio::piped())` 那么进程输出被重定向到一个pipe管道。
+那么`child.stdout` 就可以被直接读取(如实现`Read`)。同样的，你可以用`.stdout(Stdio::piped())`
+方法就能够写到 `child.stdin`。
 
-For example, if we just had `.stdout(Stdio::piped())` then the child's standard output
-is redirected to a pipe. Then `child.stdout` is something you can use to directly
-read the output (i.e. implements `Read`). Likewise, you can use the `.stdout(Stdio::piped())`
-method so you can write to `child.stdin`.
+但如果我们用`wait_with_output`代替`wait`那么它返回一个 `Result<Output>`且子进程
+输出就像之前一样被以`Vec<u8>` 格式捕获到那个`Output`的`stdout`字段。
 
-But if we used `wait_with_output` instead of `wait` then
-it returns a `Result<Output>` and the child's output is captured into the `stdout`
-field of that `Output` as a `Vec<u8>` just as before.
-
-The `Child` struct also gives you an explicit `kill` method.
+`Child` struct 也提供了显式的 `kill` 方法。
 
