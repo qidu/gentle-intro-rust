@@ -1,97 +1,70 @@
-## Pain Points
+## Pain Points 痛点
 
-It is true to say that Rust is a harder language to learn than most
-'mainstream' languages. There are exceptional people who don't find it so
-difficult, but note the strict meaning of 'exceptional' - they are _exceptions_.
-Many struggle at first, and then succeed. Initial difficulties aren't predictive
-of later competency!
+如实说Rust要比 _主流_ 语言难学。有些杰出的人不觉得它难，注意这里
+_杰出_ 的严格定义 —— 他们是 _特例_。起先挣扎，然后成功。初始的困难
+并不是后来能力的预言。
 
-We all come from somewhere, and in the case of programming languages this
-means previous exposure to mainstream languages like one of the 'dynamic'
-languages like Python or one of the 'static' languages like C++. Either
-way, Rust is sufficiently different to require mental retooling. Clever
-people with experience jump in and are disappointed that their
-cleverness is not immediately rewarded; people with less self-worth
-think they aren't 'clever' enough.
+我们都来自某些地方，在编程语言情景中这意味着先前暴露在主流语言如
+'动态'语言之一的Python或'静态'语言之一的C++。任何一条路上，Rust都
+是充足的复杂而需要精神上的重新武装。聪明的人跳进来并失望于自己的
+聪明没有立即被奖励；少有自我价值感的人认为他们还不够'聪明'。
 
-For those with dynamic language experience (in which I would include
-Java) everything is a reference, and all references are mutable by default.
-And garbage collection _does_ make it easier to write memory-safe
-programs. A lot has gone into making the JVM pretty fast, at the cost
-of memory use and predicability. Often that cost is considered worth it -
-the old new idea that programmer productivity is more important than
-computer performance.
+对那些有动态语言经验的人(这里我包括Java)来说任何事都是引用，所有
+的引用都是默认可修改的。然后垃圾回收让编写内存安全的程序容易点。
+很多努力让JVM很快，以内存占用和预测为代价。通常认为这样的代价
+是值得的 —— 旧的新观点认为程序员的生产力远比计算性能重要。
 
-But most computers in the world - the ones that handle really important
-things like throttle control on cars - don't have the massive resources
-that even a cheap laptop has, and they need to respond to events
-in _real time_. Likewise, basic software infrastructure needs to be
-correct, robust, and fast (the old engineering trinity). Much of this is
-done in C and C++ which are inherently unsafe - the _total cost_ of
-this unsafety is the thing to look at here. Maybe you knock the program
-together quicker, but _then_ the real development starts.
+但世界上大多数计算机 —— 比如处理真正重要工作的汽车阀控制器 ——
+并没有即便廉价笔记本拥有的大量资源，它们需要对事件 _实时_ 响应。
+同样的，基本的基础设施软件需要是正确的、健壮的、快速的(旧的三位
+一体工程)。很多这些东西是用不安全的C和C++编写的 —— 不安全的
+总体代价就是这里要关注的。也许你很快把程序组装在一起，_然后_
+真正的开发开始了。
 
-System languages can't afford garbage collection, because they
-are the bedrock on which everything rests. They allow you to be free
-to waste resources as you see fit.
+系统语言不能承受垃圾回收，因为它是导致所有计算停滞的基础。
+它们允许你对看到的资源浪费无计可施。
 
-If there is no garbage collection, then memory must be managed in
-other ways. Manual memory management - I grab memory, use it, and
-explicitly give it back - is hard to get right. You can learn enough
-C to be productive and dangerous in a few weeks - but it takes years
-to become a good safe C programmer, checking every possible error condition.
+如果没有垃圾回收，内存需要通过其他方式管理。手动管理 —— 我申请内存，
+使用它，然后显式释放它 —— 是很难做对。你可以用几周时间对C学习的足够
+多以变得多产和危险 —— 但需要若干年成为好的安全的程序员，检查每一个
+错误条件。
 
-Rust manages memory like modern C++ - as objects are destroyed, their
-memory is reclaimed. You can allocate memory on the heap with `Box`, but
-as soon as that box 'goes out of scope' at the end of the function, the
-memory is reclaimed. So there is something like `new` but nothing like
-`delete`. You create a `File` and at the end, the file handle (a precious
-resource) is closed. In Rust this is called _dropping_.
+Rust管理内存像现代C++ —— 当对象销毁时，它们的内存被收回。你能用`Box`
+在堆上分配内存，但在这个box在函数结束离开作用域时，内存被回收。所
+以这里有点像`new`但不没有`delete`。你创建了一个`File`对象，在结束时文件
+句柄资源被关闭。在Rust里这被称为 _废弃_。
 
-You need to share resources - it's very inefficient to make copies of
-everything - and that's where things get interesting. C++ also has
-references, although Rust references are rather more like C pointers -
-you need to say `*r` to refer to the value, you need to say `&` to
-pass a value as a reference.
+你需要共享资源 —— 拷贝所有数据是很没效率的 —— 这是事情变得有趣的原因。
+C++也有引用，尽管Rust的引用更像是C的指针 —— 你需要用`*r`来接引用值，
+你需要用`&`来传递值的引用。
 
-Rust's _borrow checker_ makes sure that is impossible
-for a reference to exist after the original value is destroyed.
+Rust的 _借用检查器_ 确保不让引用在原始数据被废弃的情况下存在。
 
+## Type Inference 类型推导
 
-## Type Inference
+静态和动态的区别不是全部情况。如在多数事情上，有更多维度来玩。
+C是静态类型(每个变量在编译期有类型) 但是弱类型(如void*能指向任何
+地方)；Python是动态类型(类型在值里而不在变量上)但是强类型。Java
+是静态的/强类型(通过反射来方便的/危险的转换值)而Rust是静态的/强
+类型，没有运行时反射。
 
-The distinction between 'static' and 'dynamic' isn't everything. Like with
-most things, there are more dimensions in play. C is statically-typed
-(every variable has a type at compile-time) but weakly-typed (e.g. `void*`
-can point to _anything_); Python is dynamically-typed (the type is in
-the value, not the variable) but strongly-typed. Java is static/sorta strong
-(with reflection as convenient/dangerous escape valve) and Rust is
-static/strong, with no runtime reflection.
+Java以所有类型都需要令人麻木的_打_出来而出名，Rust喜欢 _推导_ 类型。
+这是个好主意，但也表示你有时需要搞清楚实际类型是什么。你会看到
+`let n = 100` 并好奇 —— 具体是什么整数类型？默认情况，它会是`i32` —— 
+一个4字节的有符号整数。所有人都同意C里不指定整数类型(如`int`和`long`)
+是不对的；最好显式指明。你可以总是拼出类型，就像`let n: u32 = 100`
+或让常量强制类型，就像`let n = 100u32`。但类型推导比那更强！如果你
+声明 `let n = 100` 然后 `rustc` 总知道`n`必须是 _某些_ 整数类型。如果
+你把`n`传递给`u64`参数的函数那么将推导出`n`的类型就是它！
 
-Java is famous for needing all thoses types _typed out_ in numbing detail,
-Rust likes to _infer_ types. This is generally a good idea, but it does
-mean that you sometimes need to work out what the actual types are. You
-will see `let n = 100` and wonder - what kind of integer is this? By
-default, it would be `i32` - a four-byte signed integer. Everyone agrees
-by now that C's unspecified integer types (like `int` and `long`) are
-a bad idea; better to be explicit. You can always spell out the type,
-as in `let n: u32 = 100` or let the literal force the type, as in
-`let n = 100u32`.  But type inference goes much further than that!
-If you declare `let n = 100` then all `rustc` knows that `n` must be
-_some_ integer type. If you then passed `n` to a function expecting
-a `u64` then that must be the type of `n`!
+此后当你将`n`传给需要`u32`的函数时，`rustc`将不允许你这么做，因为`n`
+已经被绑在`u64`上且它 _将不会_ 简单的为你转换这个整数。这就是
+强类型行为 —— 这里没有那些虽导致你的过程平滑但有可能突然整数溢出
+的小转换和类型提升。你需要显式的传递`n`为`n as u32` —— Rust中的typecast。
+幸运的是，`rustc`很擅长在有行为的路径上突发坏消息 —— 即你能遵守编译器
+的建议来修复问题。
 
-After that, you try to pass `n` to a function expecting `u32`.
-`rustc` will not let you do this, because `n` has been tied down to
-`u64` and it _will not_ take the easy way out and convert that
-integer for you.  This is strong typing in action - there are none
-of those little conversions and promotions which make your life
-smoother until integer overflow bites your ass suddenly. You would have
-to explicitly pass `n` as `n as u32` - a Rust typecast. Fortunately,
-`rustc` is good at breaking the bad news in an 'actionable' way - that is,
-you can follow the compiler's advice about fixing the problem.
-
-So, Rust code can be very free of explicit types:
+所以Rust代码能不用显式类型:
 
 ```rust
 let mut v = Vec::new();
@@ -100,16 +73,15 @@ v.push(10);
 v.push(20);
 v.push("hello") <--- just can't do this, man!
 ```
-Not being able to put strings into a vector of integers is a feature,
-not a bug. The flexibility of dynamic typing is also a curse.
+不能将字符串放进整数vector是个特征，而不是问题。动态类型的
+灵活性也是个祸根。
 
-(If you _do_ need to put integers and strings into the same vector, then
-Rust `enum` types are the way to do it safely.)
+(如果你需要把整数和字符串放进同样的vector)，那么Rust的`enum`
+是安全实现这个功能的方式。）
 
-Sometimes you need to at least give a type _hint_. `collect` is a
-fantastic iterator method, but it needs a hint. Say I have a
-iterator returning `char`. Then `collect`
-can swing two ways:
+有时你需要至少给出类型 _线索_。`collect`是个令人惊叹的迭代器
+方法，但它需要线索。比如我有个迭代器返回了`char`。那么`collect`
+可以用两种方式转动:
 
 ```rust
 // a vector of char ['h','e','l','l','o']
@@ -117,18 +89,15 @@ let v: Vec<_> = "hello".chars().collect();
 // a string "doy"
 let m: String = "dolly".chars().filter(|&c| c != 'l').collect();
 ```
-
-When feeling uncertain about the type of a variable, there's always this
-trick, which forces `rustc` to reveal the actual type name in an
-error message:
+当感觉对变量类型不确定时，也总有小方法，能强制`rustc`在错误消息
+中揭示实际类型名称:
 
 ```rust
 let x: () = var;
 ```
 
-`rustc` may pick an over-specific type. Here we want to put different
-references into a vector as `&Debug` but need to declare the type
-explicitly.
+`rustc`可以挑选一个超类型。这里我们想将不同的类型引用作为`&Debug`
+放到vector里但需要显式声明它。
 
 ```rust
 use std::fmt::Debug;
@@ -144,28 +113,21 @@ for d in display {
 }
 ```
 
-## Mutable References
+## Mutable References 可变引用
 
-The rule is: only one mutable reference at a time. The reason is
-that tracking mutability is hard when it can happen _all over the place_.
-Not obvious in dinky little programs, but things can get bad in big
-codebases.
+规则是: 同一时刻只有一个可变引用。原因是当它可能在 _任何地方_
+发生以致跟踪可变性是很难的。不像在小程序里那么明显，在大型
+代码库里事情会变得更糟。
 
-The further constraint is that you can't have immutable references while
-there's a mutable reference out. Otherwise, anybody who has those
-references doesn't have a guarantee that they won't change. C++ also
-has immutable references (e.g. `const string&`) but does _not_ give
-you this guarantee that someone can't keep a `string&` reference and modify it
-behind your back.
+进一步的限制是在有了可变引用时不能获得不可变引用。否则，任何
+持有那些引用的人没法保证值不变。C++也有不可变引用(如`const string&`)
+但不能给你这种保证没有人不能持有`string&`引用并在背后修改它。
 
-This is a challenge if you are used to languages where every reference
-is mutable! Unsafe, 'relaxed' languages depend on people understanding
-their own programs and nobly deciding not to do Bad Things. But
-big programs are written by more than one person and are beyond the
-power of a single individual to understand in detail.
+这会是个挑战如果你已经习惯了别的语言里每处引用都是可变的！不安全，
+'松弛的'语言依赖人们理解他们的程序并高尚的决定不做坏事。但大型程序
+被多个人编写且理解所有细节超越了个体的能力。
 
-The _irritating_ thing is that the borrow checker is not as smart as it
-could be.
+_令人生气的_ 是借用检查器不是那么聪明。
 
 ```rust
 let mut m = HashMap::new();
@@ -178,11 +140,10 @@ if let Some(r) = m.get_mut("one") { // <-- mutable borrow of m
     m.insert("one", 1); // can't borrow mutably again!
 }
 ```
+很清楚这并不真违反了Rust规则因为如果我们得到了`None`那么
+实际没有从map借用任何对象。
 
-Clearly this does not _really_ violate the Rules since if we got `None` we
-haven't actually borrowed anything from the map.
-
-There are various ugly workarounds:
+这是丑的处理方法:
 
 ```rust
 let mut found = false;
@@ -195,10 +156,9 @@ if ! found {
 }
 ```
 
-Which is yucky, but it works because the bothersome borrow is kept to
-the first if-statement.
+这令人讨厌，但它能工作因为吗发的借用被保持到第一个if语句结束。
 
-The better way here is to use `HashMap`'s [entry API](https://doc.rust-lang.org/std/collections/hash_map/enum.Entry.html).
+更好的方法是使用 `HashMap`的 [entry API](https://doc.rust-lang.org/std/collections/hash_map/enum.Entry.html).
 
 ```rust
 use std::collections::hash_map::Entry;

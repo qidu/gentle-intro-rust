@@ -6,61 +6,47 @@
 
 ## Why learn a new Programming Language?
 
-The aim of this tutorial is to take you to a place where you can read and write
-enough Rust to fully appreciate the excellent learning resources available
-online, in particular [The Book](https://doc.rust-lang.org/stable/book/).
-It's an opportunity to _try before you buy_, and get enough feeling for the
-power of the language to want to go deeper.
+这个指南的目标是带你读和写足够的Rust代码以感谢线上优秀的学习资源，
+特别是 [The Book](https://doc.rust-lang.org/stable/book/)。这是个机会在
+买前尝试，得到这个语言威力的足够感觉以继续深入。
 
-As Einstein might have said, "As gentle as possible, but no gentler.". There is a
-lot of new stuff to learn here, and it's different enough to require some
-rearrangement of your mental furniture. By 'gentle' I mean that the features are
-presented practically with examples; as we encounter difficulties, I hope to
-show how Rust solves these problems. It is important to understand the problems before
-the solutions make sense. To put it in flowery language, we are going for a hike
-in hilly country and I will point out some interesting rock formations on the way,
-with only a few geology lectures. There will be some uphill but the view will be
-inspiring; the community is unusually pleasant and happy to help.
-There is the [Rust Users Forum](https://users.rust-lang.org/) and an active
-[subreddit](https://www.reddit.com/r/rust/) which is unusually well-moderated.
-The [FAQ](https://www.rust-lang.org/en-US/faq.html) is a good resource if
-you have specific questions.
+就像爱因斯坦也许会说，"尽可能小心，但不是更小心"。有很多新人来学习，
+要获得一些思想家具的重新安排区别很大。用'gentle'我意思是这些功能实际
+用例子描述；当我们遇到困难，我向你展示如何用Rust解决问题。在解决问题
+前先理解问题很重要。将它当作华而不实的语言前，我们将先去山地远足，
+我将用少量几课指出路上一些有趣的岩层。有些更高但视野已激活；社区不
+常乐意和高兴去帮助。有 [Rust Users Forum](https://users.rust-lang.org/)
+和[subreddit](https://www.reddit.com/r/rust/) ，它不太适中。
+如果你有规范问题[FAQ](https://www.rust-lang.org/en-US/faq.html)是很好的资源。
 
-First, why learn a new programming language? It is an investment of time and energy
-and that needs some justification. Even if you do not immediately land
-a cool job using that language, it stretches the mental muscles and makes you a
-better programmer. That seems a poor kind of return-on-investment but if you're
-not learning something _genuinely_ new all the time then you will stagnate and be
-like the person who has ten years of experience in doing the same thing over and over.
+首先，为什么要学习新语言？这是对时间和能力投资的正当理由。即便你没有立即
+用这语言找到一个好工作，它拉伸了思想肌肉并让你成为更好的程序员。这看起来
+有很差的ROI但如果你没有学习真正的新东西你将停滞并像用10年经验一直重复做
+同样事情。
 
 ## Where Rust Shines
 
-Rust is a statically and strongly typed systems programming language. _statically_
-means that all types are known at compile-time, _strongly_ means that these types
-are designed to make it harder to write incorrect programs. A successful compilation
-means you have a much better guarantee of correctness than with a cowboy language
-like C. _systems_ means generating the best possible machine code with full control
-of memory use.  So the uses are pretty hardcore: operating systems, device drivers
-and embedded systems that might not even have an operating system.  However, it's
-actually a very pleasant language to write normal application code in as well.
+Rust是个静态的、强类型的系统语言。_静态的_ 意味着所有类型在编译期就知道，
+_强_ 类型意味着这些类型设计出来让你很难写错程序。一次成功的编译意味着你
+比牛仔语言C有了更好的正确保障。_系统_ 意思是生成了最好的机器代码并完全控制
+了内存使用。所以用途非常核心: 操作系统，设备驱动和没有操作系统的嵌入式系统。
+尽管如此，它实际上是个非常友好的语言也用来编写常规应用程序。
 
-The big difference from C and C++ is that Rust is _safe by default_; all memory accesses
-are checked. It is not possible to corrupt memory by accident.
+Rust与C&C++的重大区别是 _默认安全_；所有访问的内存都是检查过的，它不太
+可能偶然内存崩溃。
 
-The unifying principles behind Rust are:
+Rust背后的独特原理是:
 
-  - strictly enforcing _safe borrowing_ of data
-  - functions, methods and closures to operate on data
-  - tuples, structs and enums to aggregate data
-  - pattern matching to select and destructure data
-  - traits to define _behaviour_ on data
+  - 严格强制对数据的安全借用
+  - 用函数，方法和闭包来操作数据
+  - 用元组、结构体和枚举类聚合数据
+  - 用模式匹配来选择和解构出数据
+  - 用特性定义了数据上的 _行为_ 
 
-There is a fast-growing ecosystem of available libraries through Cargo
-but here we will concentrate on the core principles of the language
-by learning to use the standard library. My advice is to write _lots of small programs_,
-so learning to use `rustc` directly is a core skill. When doing the examples in this
-tutorial I defined a little script called `rrun` which does a compilation and runs
-the result:
+通过Cargo有快速增长的生态库但这里我们通过学习使用标准库来聚焦于
+语言的核心原理。我的建议是写很多小程序，学习直接使用`rustc`是核心
+技能。当尝试这里的例子时我们定义了一个脚本`rrun`来编译并运行目标
+程序:
 
 ```
 rustc $1.rs && ./$1
