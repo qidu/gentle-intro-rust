@@ -172,29 +172,26 @@ match m.entry("one") {
     }
 };
 ```
+借用检查器在 _非词法生命周期_ 在本年某些时候就绪后将少些沮丧。
 
-The borrow checker will get less frustrating when _non-lexical lifetimes_
-arrive sometime this year.
+借用检查器确实理解一些重要的情况，尽管如此。如果你有个结构体，
+成员能被独立借用。组合是你的朋友；大结构体可以包含小结构体，
+小的有自己的方法。定义所有可变方法在大结构体上将导致某些时候
+你没法修改任何东西，甚至这些方法也许只引用了一个成员。
 
-The borrow checker _does_ understand some important cases, however.
-If you have a struct, fields can be independently borrowed. So
-composition is your friend; a big struct should contain smaller
-structs, which have their own methods. Defining all the mutable methods
-on the big struct will lead to a situation where you can't modify
-things, even though the methods might only refer to one field.
+对可变数据，有特殊方法来单独对待每部分。例如，你有个可变切片，
+那么 `split_at_mut`将切出两个可变切片。这完全安全，因Rust知道
+两个切片不重叠。
 
-With mutable data, there are special methods for treating parts of the
-data independently. For instance, if you have a mutable slice, then `split_at_mut`
-will split this into two mutable slices. This is perfectly safe, since Rust
-knows that the slices do not overlap.
+## References and Lifetimes 引用和生命周期
 
-## References and Lifetimes
-
+Rust不允许一个引用超过其值的情况出现。否则我们将有个'悬垂引用'指向了
+无效值 —— 段错误不可避免。
 Rust cannot allow a situation where a reference outlives the value. Otherwise
 we would have a 'dangling reference' where it refers to a dead value -
 a segfault is inevitable.
 
-`rustc` can often make sensible assumptions about lifetimes in functions:
+`rustc`能常做关于函数内声明周期的有意义假设:
 
 ```rust
 fn pair(s: &str, ch: char) -> (&str, &str) {
@@ -211,42 +208,38 @@ fn main() {
 // ("hello", "dolly")
 ```
 
-This is quite safe because we cope with the case where the delimiter isn't found.
-`rustc` is here assuming that both strings in the tuple are borrowed from the
-string passed as an argument to the function.
+这很安全因为我们对付着分节符没出现的情况。`rustc`这里假设元组里的两个字符串
+都借用与传入函数的参数字符串。
 
-Explicitly, the function definition looks like this:
+这函数显式的定义看起来这样:
 
 ```rust
 fn pair<'a>(s: &'a str, ch: char) -> (&'a str, &'a str) {...}
 ```
+这里符号的意思是输出字符串生命周期 _最长如_ 输入字符串。它的意思不是
+生命周期相同，我们可以在任何时间废弃它们，那时不能超过`s`。
 What the notation says is that the output strings live _at most as long_ as the
 input string. It's not saying that the lifetimes are the same, we could drop them
 at any time, just that they cannot outlive `s`.
 
-So, `rustc` makes common cases prettier with _lifetime ellision_.
+所以，`rustc`以 _声明周期省略_ 美化常见情况。
 
-Now, if that function received _two_ strings, then you would need to
-explicitly do lifetime annotation to tell Rust what output string is
-borrowed from what input string.
+现在，如果函数接收了2个字符串，那你可能需要显式的生命周期标注以告诉
+Rust哪些输出字符串是借用于哪些输入字符串。
 
-You always need an explicit lifetime when a struct borrows a reference:
+当结构体借用引用时你总是需要一个显式的生命周期:
 
 ```rust
 struct Container<'a> {
     s: &'a str
 }
 ```
+标注再次约束结构体的生命周期不能超过引用。对结构体和函数来说，
+声明周期需要被声明在`<>`像类型参数一样。
 
-Which is again insisting that the struct cannot outlive the reference.
-For both structs and functions, the lifetime needs to be declared in `<>`
-like a type parameter.
-
-Closures are very convenient and a powerful feature - a lot of the power
-of Rust iterators comes from them. But if you store them, you have
-to specify a lifetime. This is because basically a closure is a generated
-struct that can be called, and that by default borrows its environment.
-Here the `linear` closure has immutable references to `m` and `c`.
+闭包是非常方便和强大的特征 —— Rust迭代器的许多能力来自闭包。但
+如过你保存它们，你需要指明一个生命周期。这是因为基本上一个闭包
+是个生成的能调用的结构体并不可变引用指向`m`和`c`。
 
 ```rust
 let m = 2.0;
@@ -257,55 +250,45 @@ let sc = |x| m*x.cos()
 ...
 ```
 
-Both `linear` and `sc` implement `Fn(x: f64)->f64` but they are _not_
-the same animal - they have different types and sizes!  So to store
-them you have to make a `Box<Fn(x: f64)->f64 + 'a>`.
+ `linear` 和 `sc`实现了 `Fn(x: f64)->f64` 但它们是不同物种 —— 它们有不同的
+ 类型和大小! 所以为保存它们你需要创建一个 `Box<Fn(x: f64)->f64 + 'a>`。
 
-Very irritating if you're used to how fluent closures are in Javascript
-or Lua, but C++ does a similar thing to Rust and needs `std::function`
-to store different closures, taking a little penalty for the virtual
-call.
+如果你习惯了Javascript或Lua里顺利的闭包，但C++与Rust做了类似的
+工具`std::function`以保存不同的闭包，对虚拟调用有点惩罚。
 
 
-## Strings
+## Strings 字符串
 
-It is common to feel irritated with Rust strings in the beginning. There are different
-ways to create them, and they all feel verbose:
+一开始对Rust字符串的烦恼是共同的。有不同的方式来创建它们，都是明显的:
 
 ```rust
 let s1 = "hello".to_string();
 let s2 = String::from("dolly");
 ```
-Isn't "hello" _already_ a string? Well, in a way. `String` is an _owned_ string,
-allocated on the heap; a string literal "hello" is of type `&str` ("string slice")
-and might be either baked into the executable ("static") or borrowed from a `String`.
-System languages need this distinction - consider a tiny microcontroller, which has
-a little bit of RAM and rather more ROM. Literal strings will get stored in ROM
-("read-only") which is both cheaper and consumes much less power.
+难道"hello"本不是个字符串？好吧，这么说。`String`是自己拥有的字符串，
+内存分配在堆上；而字符串常量"hello"是`&str`类型(即"string slice")且
+也行被包在可执行文件里("static")或从`String`变量借用而来。系统语言需要
+这种区分 —— 考虑一个微控制器，它有很小的RAM也没有更多ROM。常量字符
+串被存在ROM(是"read-only")中，它既可以更便宜又可以消耗更少能源。 
 
-But (you may say) it's so simple in C++:
+但也许你会说这在C++里很简单:
 
 ```C
 std::string s = "hello";
 ```
-Which is shorter yes, but hides the implicit creation of a string object.
-Rust likes to be explicit about memory allocations, hence `to_string`.
-On the other hand, to borrow from a C++ string requires `c_str`, and
-C strings are stupid.
+这是更短，但暗含了隐式的字符串对象创建。Rust喜欢显式分配内存，因此
+用`to_string`。换句话说，从C++ 字符串上借用需要`c_str`，C字符串很笨。
 
-Fortunately, things are better in Rust - _once_ you accept that both `String` and `&str`
-are necessary. The methods of `String` are mostly for changing the string,
-like `push` adding a char (under the hood it's very much like a `Vec<u8>`).
-But all the methods of `&str` are also available. By the same `Deref`
-mechanism, a `String` can be passed as `&str` to a function - which is
-why you rarely see `&String` in function definitions.
+幸运的是，Rust里事情更好 —— _一旦_ 你接受了那`String`和`&str`都是必要的。
+`String`的方法大多数都是修改字符串的，如`push`是添加一个字符(在那边它
+很像Vec<u8>)。`&str`的全部方法也可用。像解引用的机制，一个 `String`能够
+当作`&str`传递一个函数 —— 这是为什么你很少看到函数定义里有`&String`。
 
-There are a number of ways to convert `&str` to `String`, corresponding
-to various traits. Rust needs these traits to work with types generically.
-As a rule of thumb, anything that implements `Display` also knows `to_string`,
-like `42.to_string()`.
+把`&str`转换成`String`的方法很多，对应在各种各样的trait上。Rust需要这些
+trait能与泛型工作。经验法则是，任何实现了`Display`的类型也有`to_string`方法，
+像 `42.to_string()`。
 
-Some operators may not behave according to intuition:
+一些操作符直觉性的不能用:
 
 ```rust
     let s1 = "hello".to_string();
@@ -315,105 +298,92 @@ Some operators may not behave according to intuition:
     assert!(s1 == &s2); // WTF?
 ```
 
-Remember, `String` and `&String` are different types, and `==` isn't
-defined for that combination. This might puzzle a C++ person who is
-used to references being almost interchangeable with values.
-Furthermore, `&s2` doesn't _magically_ become a `&str`, that's
-a _deref coercion_ which only happens when assigning to a `&str`
-variable or argument. (The explicit `s2.as_str()` would work.)
+记住， `String` 和 `&String` 是不同的类型，`==` 不是为那组合定义的。
+这也许会让习惯了引用与值可交换的C++开发者迷惑。更进一步，`&s2`
+不会神奇的是`&str`，它是 _强制解引用_ 而只在赋给 `&str`变量或参数
+时发生。(如同显式的调用`s2.as_str()` 。)
 
+尽管如此，更真诚的值得一个WTF:
 However, this more genuinely deserves a WTF:
 
 ```rust
 let s3 = s1 + s2;  // <--- no can do
 ```
-You cannot concatenate two `String` values, but you can concatenate
-a `String` with a `&str`.  You furthermore cannot concatenate a
-`&str` with a `String`. So mostly people don't use `+` and use
-the `format!` macro, which is convenient but not so efficient.
+你不能连接两个 `String` 值，但你可以把一个`&str`连接一个 `String`上。
+所以多数人不用操作符`+`而用宏`format!`，它很方便单不高效。
 
-Some string operations are available but work differently. For instance,
-languages often have a `split` method for breaking up a string into an array
-of strings. This method for Rust strings returns an _iterator_, which
-you can _then_ collect into a vector.
+一些字符操作可用但不实现不同。例如语言字符常有`split`方法来打破
+一个字符串成字符串数组。Rust字符串的这个方法返回一个 _迭代器_，
+通过它你 _然后_ 你可以将子串收集到vector中。
 
 ```rust
 let parts: Vec<_> = s.split(',').collect();
 ```
-
-This is a bit clumsy if you are in a hurry to get a vector. But
-you can do operations on the parts _without_ allocating a vector!
-For instance, length of largest string in the split?
+如果你着急获得一个vector这很笨拙。但你能对每部分做其他操作而
+无须分配新vector！例如，找出长度最大的子串？
 
 ```rust
 let max = s.split(',').map(|s| s.len()).max().unwrap();
 ```
 
-(The `unwrap` is because an empty iterator has no maximum and we must
-cover this case.)
+(用 `unwrap` 是因为我们需要处理没有最啊长度的空迭代器情况。)
 
-The `collect` method returns a `Vec<&str>`, where the parts are
-borrowed from the original string - we only need allocate space
-for the references.  There is no method like this in C++, but until
-recently it would have to individually allocate each substring. (C++ 17
-has `std::string_view` which behaves like a Rust string slice.)
+`collect`方法返回一个`Vec<&str>`，每个成员从原始字符串借用而来
+—— 我们只需要为那些引用分配空间。在C++里没有类似方法，但直
+到近来它不得不一个个的分配子串。(C++ 17有`std::string_view`行为
+想Rust字符串切片。)
 
-## A Note on Semicolons
+## 分号笔记
 
-Semicolons are _not_ optional, but usually left out in the same places as
-in C, e.g. after `{}` blocks. They also aren't needed after `enum` or
-`struct` (that's a C peculiarity.)  However, if the block must have a
-_value_, then the semi-colons are dropped:
+分号 _不是_ 可选的，但常放在与C语言里一样的位置，如在`{}`块后。
+它们也不是需要在`enum`或`struct`后(这是C的特色。) 尽管如此，
+如果块必须拥有一个 _值_，那么分号就放在那:
 
 ```rust
     let msg = if ok {"ok"} else {"error"};
 ```
 
+注意在`let`语句后必须有个分号！
 Note that there must be a semi-colon after this `let` statement!
 
-If there were semicolons after these string literals then the returned
-value would be `()` (like `Nothing` or `void`). It's common error when
-defining functions:
+如果分号在那些字符常量后那么返回值将是`()`(像`Nothing`或`void`)。
+它是定义函数的常见错误:
 
 ```rust
 fn sqr(x: f64) -> f64 {
     x * x;
 }
 ```
-
-`rustc` will give you a clear error in this case.
+这里`rustc`将给你清楚的错误信息。
 
 ## C++-specific Issues
 
 ### Rust value semantics are Different
 
-In C++, it's possible to define types which behave exactly like primitives
-and copy themselves. In addition, a move constructor can be defined to
-specify how a value can be moved out of a temporary context.
+在C++中，可以定义出新类型表现得像基础类型并拷贝自己。此外，
+能定义move构造函数以指出一个值可以被move出临时上下文。
 
-In Rust, primitives behave as expected, but the `Copy` trait can only
-be defined if the aggregate type (struct, tuple or enum) itself contains
-only copyable types. Arbitrary types may have `Clone`, but you have
-to call the `clone` method on values. Rust requires any allocation
-to be explicit and not hide in copy constructors or assignment operators.
+在Rust中，基础类型表现得如预期，但`Copy` trait只能被全不成员
+是可拷贝的聚合类型(struct,tuple,enum)定义。任意类型可以有
+`Clone`，但你需要调用该值的`clone`方法。Rust要求任何分配是
+显式的且不能隐藏在copy构造器或赋值操作符中。
 
+所以，拷贝和移动总是被定义就像只到处移动bits且不可覆盖。
 So, copying and moving is always defined as just moving bits around and is
 not overrideable.
 
-If `s1` is a non `Copy` value type, then `s2 = s1;` causes a move to happen,
-and this _consumes_ `s1`!  So, when you really want a copy, use `clone`.
+如果`s1`不是可`Copy`的值类型，那么`s2 = s1;` 引起move发生，这 
+_消耗_ 了`s1`! 所以你真正需要一个拷贝时，用`clone`。
 
-Borrowing is often better than copying, but then you must follow the
-rules of borrowing. Fortunately, borrowing _is_ an overridable behaviour.
-For instance, `String` can be borrowed as `&str`, and shares all the
-immutable methods of `&str`. _String slices_ are very powerful compared
-to the analogous C++ 'borrowing' operation, which is to extract a `const char*`
-using `c_str`. `&str` consists of a pointer to some owned bytes (or a string
-literal) and a _size_. This leads to some very memory-efficient patterns.
-You can have a `Vec<&str>` where all the strings have been borrowed from
-some underlying string - only space for the vector needs to be allocated:
+借用常好于拷贝，但你必须在借用时遵守规则。幸运的是，借用 _是_
+可覆盖的行为。例如，`String`能被借用为`&str`，共享`&str`的所有
+不可变方法。_ 字符串切片_ 与C++的相似的'borrowing'操作比非常强大，
+前者用`c_str`抽取一个`const char*`。 `&str`由一个指向自拥有的字节
+(或字符串常量) 和一个 _大小_。这导致了一些非常有内存效率的模式。
+你可以在所有字符串都被借用自一些底层字符串时得到`Vec<&str>`
+—— 只有vector的空间需要被重分配:
 
-For example, splitting by whitespace:
+例如，用空格切分字符串:
 
 ```rust
 fn split_whitespace(s: &str) -> Vec<&str> {
@@ -421,17 +391,16 @@ fn split_whitespace(s: &str) -> Vec<&str> {
 }
 ```
 
-Likewise, a C++ `s.substr(0,2)` call will always copy the string, but a slice
-will just borrow: `&s[0..2]`.
+同样的操作，调用 C++ `s.substr(0,2)` 将总是拷贝字符串，但Rust字符
+常量只借用: `&s[0..2]`。
 
-There is an equivalent relationship between `Vec<T>` and `&[T]`.
+ `Vec<T>` 和 `&[T]` 是等价关系。
 
-### Shared References
+### Shared References 共享引用
 
-Rust has _smart pointers_ like C++ - for instance, the equivalent of
-`std::unique_ptr` is `Box`. There's no need for `delete`, since any
-memory or other resources will be reclaimed when the box goes out of
-scope (Rust very much embraces RAII).
+Rust有像C++的 _智能指针_ —— 例如，等价于`std::unique_ptr` 的是 `Box`。
+它不需要`delete`，因为任何内容和其他资源都将在box离开作用域时
+被回收(Rust采纳了RAII)。
 
 ```rust
 let mut answer = Box::new("hello".to_string());
@@ -439,51 +408,42 @@ let mut answer = Box::new("hello".to_string());
 answer.push('!');
 println!("{} {}", answer, answer.len());
 ```
+人们发现`to_string`首先令人烦恼，但是 _显式的_。
 
-People find `to_string` irritating at first, but it is _explicit_.
+注意显式的接引用`*`，但智能指针上的方法不需要任何特殊符号
+(不是 `(*answer).push('!')`)。
 
-Note the explicit dererefence `*`, but methods on smart pointers
-don't need any special notation (we do not say `(*answer).push('!')`)
+明显，借用只在原始内容有有清晰的owner时工作。在很多设计里
+这不太可能。
 
-Obviously, borrowing only works if there is a clearly defined owner of
-the original content. In many designs this isn't possible.
+在C++里，这是 `std::shared_ptr`的用途；拷贝只引起公共数据的
+引用计数的被修改。这不是没代价的，尽管:
 
-In C++, this is where `std::shared_ptr` is used; copying just involves
-modifying a reference count on the common data. This is not without
-cost, however:
+- 甚至如果数据是只读的，不断修改引用计数能引起缓存不一致
+- `std::shared_ptr` 定义成是线程安全的且也带有锁开销
 
-- even if the data is read-only, constantly modifying the reference
-  count can cause cache invalidation
-- `std::shared_ptr` is designed to be thread-safe and carries locking
-  overhead as well
+在Rust里，`std::rc::Rc`也表现得像采用引用计数的共享智能指针。
+尽管如此，它只用于不可变引用！如果你需要一个线程安全的变量，
+用`std::sync::Arc` (for 'Atomic Rc')。所以Rust这里提供2个变量有点
+不方便，但你能为非多线程的操作避免锁开销。
 
-In Rust, `std::rc::Rc` also acts like a shared smart pointer using
-reference-counting. However, it is for immutable references only! If you
-want a thread-safe variant, use `std::sync::Arc` (for 'Atomic Rc').
-So Rust is being a little awkward here in providing two variants, but you
-get to avoid the locking overhead for non-threaded operations.
+那些必须是不可变引用因为这是Rust内存模型的基础。尽管如此，
+也有跳出牌 `std::cell::RefCell`。如果你有个共享引用定义为
+`Rc<RefCell<T>>`，那么你能通过它的`borrow_mut`方法进行可变的
+借用。这 _动态的_ 应用了Rust的借用规则 —— 所以例如任何在借用
+已经发生时尝试调用`borrow_mut` 将引起panic。
 
-These must be immutable references because that is fundamental to Rust's
-memory model. However, there's a get-out card: `std::cell::RefCell`.
-If you have a shared reference defined as `Rc<RefCell<T>>` then you
-can mutably borrow using its `borrow_mut` method. This applies the
-Rust borrowing rules _dynamically_ - so e.g. any attempt to call
-`borrow_mut` when a borrow was already happening will cause a panic.
+这仍是 _安全的_。因为Panic将发生在任何内存被非法触及 _之前_！
+就像异常，它们回滚了调用栈。所以它对这样一个结构性的过程是个
+不幸的词 —— 相比惊慌失措的撤退而言它是个有序的回收。
 
-This is still _safe_. Panics will happen
-_before_ any memory has been touched inappropriately! Like exceptions,
-they unroll the call stack. So it's an unfortunate word for such
-a structured process - it's an ordered withdrawal rather than a
-panicked retreat.
+完整的`Rc<RefCell<T>>`是笨拙的，但应用程序比代码不高兴。这里
+再次强调Rust喜欢显式的操作。
 
-The full `Rc<RefCell<T>>` type is clumsy, but the application code isn't
-unpleasant. Here Rust (again) is prefering to be explicit.
-
-If you wanted thread-safe access to shared state, then `Arc<T>` is the
-only _safe_ way to go. If you need mutable access, then `Arc<Mutex<T>>`
-is the equivalent of `Rc<RefCell<T>>`. `Mutex` works a little differently
-than how it's usually defined: it is a container for a value. You get
-a _lock_ on the value and can then modify it.
+如果你想要线程安全的访问共享变量，那么`Arc<T>`唯一的 _安全_ 方法。
+如果你需要可变的访问，那么`Arc<Mutex<T>>` 等价于 `Rc<RefCell<T>>`。
+`Mutex` 与常规定义的动作有所区别: 它是个值的容器。你获取值的一个
+_锁_ 然后能修改它。
 
 ```rust
 let answer = Arc::new(Mutex::new(10));
@@ -495,36 +455,29 @@ let answer = Arc::new(Mutex::new(10));
   *answer_ref = 42;
 }
 ```
+为什么有`unwrap`? 如果前面的线程闪退了，那么这个`lock`失败了。
+(这是文档中将`unwrap`看作合理事情的地方之一，因为某些事情已经
+严重出错。Panics总是能在线程里发生。)
 
-Why the `unwrap`? If the previous holding thread panicked, then
-this `lock` fails. (It's one place in the documentation where `unwrap`
-is considered a reasonable thing to do, since clearly things have
-gone seriously wrong. Panics can always be caught on threads.)
+这很重要(总是带着互斥锁)以让排他锁被尽可能短的持有。所以
+很普遍它们发生在有效的作用域 —— 那么锁在可变引用离开作用域
+时失效。
 
-It's important (as always with mutexes) that this exclusive lock is
-held for as little time as possible. So it's common for them to
-happen in a limited scope - then the lock ends when the mutable
-reference goes out of scope.
+对比C++中明显类似情景("用shared_ptr干")看起来尴尬。但现在任何对共享
+状态的修改变得明显，且`Mutex`锁模式强迫线程安全性。
 
-Compared with the apparently simpler situation in C++ ("use shared_ptr dude")
-this seems awkward. But now any _modifications_ of shared state become obvious,
-and the `Mutex` lock pattern forces thread safety.
+像其他，使用共享引用要 [小心](https://news.ycombinator.com/item?id=11698784)。.
 
-Like everything, use shared references with [caution](https://news.ycombinator.com/item?id=11698784).
+### Iterators 迭代器
 
-### Iterators
+C++中迭代器被定义得完全不正式；他们引入智能指针，常开始于`c.begin()`
+和结束于`c.end()`。迭代器上的操作被实现得像单独的模板函数，如`std::find_if`。
 
-Iterators in C++ are defined fairly informally; they involve smart pointers,
-usually starting with `c.begin()` and ending with `c.end()`. Operations on
-iterators are then implemented as stand-alone template functions, like `std::find_if`.
+Rust迭代器被用 `Iterator` trait定义；`next`返回一个`Option`且当`Option`是`None`
+时结束。
 
-Rust iterators are defined by the `Iterator` trait; `next` returns an `Option` and when
-the `Option` is `None` we are finished.
-
-The most common operations are now methods.
-Here is the equivalent of `find_if`. It returns an `Option` (case
-of not finding is `None`) and here the `if let` statement is convenient for
-extracting the non-`None` case:
+最常用的操作现在成了自己的方法。这里是 `find_if`的等价功能。它返回一个`Option`
+(在没找到时返回`None`) 并且这里`if let`语句对抽取非`None`的值很方便:
 
 ```rust
 let arr = [10, 2, 30, 5];
@@ -533,18 +486,15 @@ if let Some(res) = arr.find(|x| x == 2) {
 }
 ```
 
-### Unsafety and Linked Lists
+### Unsafety and Linked Lists 不安全性和链接表
 
-It's no secret that parts of the Rust stdlib are implemented using `unsafe`. This
-does not invalidate the conservative approach of the borrow checker. Remember that
-"unsafe" has a particular meaning - operations which Rust cannot fully verify at
-compile time. From Rust's perspective, C++ operates in unsafe mode all the time!
-So if a large application needs a few dozen lines of unsafe code, then that's fine,
-since these few lines can be carefully checked by a human. Humans are not good at
-checking 100Kloc+ of code.
+Rust标准库部分实现时用了`unsafe`不是秘密。这并没有让借用检查器这样
+保守的方法失效。记得"unsafe"有个特殊意思 —— Rust没法在编译期充分验证。
+从Rust的角度，C++总是运行在unsafe模式！所以如果一个大型应用需要少量
+行不安全代码，这没问题，因为少量几行能被人仔细检查。人类不擅长检查
+100Kloc+的代码。
 
-I mention this, because there appears to be a pattern:
-an experienced C++ person tries to implement a linked list or a tree structure,
-and gets frustrated. Well, a double-linked list _is_ possible in safe Rust,
-with `Rc` references going forward, and `Weak` references going back. But the
-standard library gets more performance out of using... pointers.
+我提到，因为那里出现了模式:
+一个有经验的C++程序员尝试实现一个链接表或树结构，会很沮丧。
+好，一个双链接列表可能 _是_ 在Rust上安全。通过`Rc`引用向前移，
+且`Weak`引用向后移。但标准库的实现比其他如用指针性能更好。
