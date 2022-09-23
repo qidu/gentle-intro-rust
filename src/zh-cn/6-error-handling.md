@@ -1,14 +1,12 @@
-# Error Handling
+# Error Handling 错误处理
 
-## Basic Error Handling
+## Basic Error Handling 基本错误处理
 
-Error handling in Rust can be clumsy if you can't use the question-mark operator.
-To achieve happiness, we need to return a `Result` which can accept any error.
-All errors implement the trait `std::error::Error`, and
-so _any_ error can convert into a `Box<Error>`.
+在Rust中处理错误时不用问号操作符是笨拙的。为达到这个便利，我们需要返回一个
+可以接受任何错误的 `Result`。所有的错误都实现了 trait `std::error::Error`，所以 _任何_
+错误都可以被转换成 `Box<Error>`。
 
-Say we needed to handle _both_ i/o errors and errors from converting
-strings into numbers:
+我们需要 _同时_ 处理i/o错误和从字符串转换成整数时的错误:
 
 ```rust
 // box-error.rs
@@ -23,25 +21,22 @@ fn run(file: &str) -> Result<i32,Box<Error>> {
     Ok(contents.trim().parse()?)
 }
 ```
-So that's two question-marks for the i/o errors (can't open file, or can't read as string)
-and one question-mark for the conversion error. Finally, we wrap the result in `Ok`.
-Rust can work out from the return type that `parse` should convert to `i32`.
+所以这里有2个问号操作符用于i/o错误(打开文件失败，或读出字符串失败) 和转换错误。
+最后，我们包装结果到`Ok`中。Rust可以从`parse`的返回类型搞清楚它返回的是`i32`。
 
-It's easy to create a shortcut for this `Result` type:
+为`Result`类型创建别名方式也很容易:
 
 ```rust
 type BoxResult<T> = Result<T,Box<Error>>;
 ```
-
-However, our programs will have application-specific error conditions, and so
-we need to create our own error type. The basic requirements
-are straightforward:
+尽管如此，我们这程序将有程序特定的错误条件，所以我们需要创建自己的错误类型。
+基本的要求很直接:
 
   - May implement `Debug`
   - Must implement `Display`
   - Must implement `Error`
 
-Otherwise, your error can do pretty much what it likes.
+其他情况，你的错误可以如下这样:
 
 ```rust
 // error1.rs
@@ -81,23 +76,19 @@ fn raises_my_error(yes: bool) -> Result<(),MyError> {
 }
 ```
 
-Typing `Result<T,MyError>` gets tedious and many Rust modules define their own
-`Result` - e.g. `io::Result<T>` is short for `Result<T,io::Error>`.
+打出 `Result<T,MyError>` 是很冗长的且很多Rust模块定义了自己的`Result` —— 例如`io::Result<T>`
+是 `Result<T,io::Error>`的别名。
 
-In this next example we need to handle the specific error when a string can't be parsed
-as a floating-point number.
+在下个例子中我们需要在字符串不能解析为浮点数时处理这样特定错误。
 
-Now the way that `?` works
-is to look for a conversion from the error of the _expression_ to the error that must
-be _returned_.  And this conversion is expressed by the `From` trait. `Box<Error>`
-works as it does because it implements `From` for all types implementing `Error`.
+现在那`?`操作符的工作方式是查找一个从 _表达式_ 错误到 _返回值_ 错误的转换方式。
+那么这个转换就是用 `From` trait来表达。`Box<Error>`因为为所有 实现`Error`类型的实现了
+`From` trait 而能如预期工作。
 
-At this point you can continue to use the convenient alias `BoxResult` and catch everything
-as before; there will be a conversion from our error into `Box<Error>`.
-This is a good option for smaller applications. But I want to show other errors can
-be explicitly made to cooperate with our error type.
+因此你可以继续方便的使用`BoxResult`别名并如之前得到的；即从我们的错误类型到`Box<Error>`
+的转换。这对小型程序是个很好的选择。但我想展示能与自定义错误显式合作的其他错误。
 
-`ParseFloatError` implements `Error` so `description()` is defined.
+`ParseFloatError`实现了`Error`所以定义了`description()`方法。
 
 ```rust
 use std::num::ParseFloatError;
@@ -116,10 +107,10 @@ fn parse_f64(s: &str, yes: bool) -> Result<f64,MyError> {
 }
 ```
 
-The first `?` is fine (a type always converts to itself with `From`) and the
-second `?` will convert the `ParseFloatError` to `MyError`.
+第一个`?`可以(一个类型实现过`From`总是转换成自己)，而第二个`?`将`ParseFloatError`
+转换成`MyError`。
 
-And the results:
+结果如下:
 
 ```rust
 fn main() {
@@ -132,31 +123,23 @@ fn main() {
 //  Err(MyError { details: "invalid float literal" })
 ```
 
-Not too complicated, although a little long-winded. The tedious bit is having to
-write `From` conversions for all the other error types that need to play nice
-with `MyError` - or you simply lean on `Box<Error>`. Newcomers get confused
-by the multitude of ways to do the same thing in Rust; there is always another
-way to peel the avocado (or skin the cat, if you're feeling bloodthirsty). The price
-of flexibility is having many options. Error-handling for a 200 line program can afford
-to be simpler than for a large application. And if you ever want to package your precious
-droppings as a Cargo crate, then error handling becomes crucial.
+不太复杂，稍微有点绕。最让人烦的是需要为所有其他错误类型写 `From` 以使其能与 `MyError`
+合用 —— 否则你简单依赖 `Box<Error>`。新人会对Rust中用不同方法实现同样功能迷惑；总是
+有其他方式来到罗马。灵活性的代价是提供很多选项。对200行的程序来说能承担的错误处理
+要比更大的程序简单。如果你曾想如Cargo crate一样打包你珍贵的模块，错误处理将是关键的。
 
-Currently, the question-mark operator only works for `Result`, not `Option`, and this is
-a feature, not a limitation.  `Option` has a `ok_or_else` which converts itself into a `Result`.
-For example, say we had a `HashMap` and must fail if a key isn't defined:
+目前，问号操作符只能用于 `Result`，而非`Option`，这是个功能选择而不是限制。 `Option` 有
+ `ok_or_else`方法能转换自己成 `Result`。例如，我们有`HashMap`时必须在key不存在时get失败:
 
 ```rust
     let val = map.get("my_key").ok_or_else(|| MyError::new("my_key not defined"))?;
 ```
+现在这里错误返回很清晰了！(这个形式使用了闭包，所以错误值只会在查找失败时创建。)
 
-Now here the error returned is completely clear! (This form uses a closure, so the error value
-is only created if the lookup fails.)
+## simple-error 用于简单错误
 
-## simple-error for Simple Errors
-
-The [simple-error](https://docs.rs/simple-error/0.1.9/simple_error/) crate provides you with
-a basic error type based on a string, as we have defined it here, and a few convenient macros.
-Like any error, it works fine with `Box<Error>`:
+[simple-error](https://docs.rs/simple-error/0.1.9/simple_error/) crate 为你提供了基于字符串的基本错误类型，
+如同我们这里定义的，和一些方便的宏。如任何错误一样，它与`Box<Error>`一起用起来没问题:
 
 ```rust
 #[macro_use]
@@ -184,34 +167,27 @@ fn main() {
 
 ```
 
-`bail!(s)` expands to `return SimpleError::new(s).into();` - return early with a conversion _into_
-the receiving type.
+`bail!(s)` 展开成  `return SimpleError::new(s).into();` —— 与 _到_ 收到类型的转换提前返回。
 
-You need to use `BoxResult` for mixing the `SimpleError` type with other errors, since
-we can't implement `From` for it, since both the trait and the type come from other crates.
+你需要用 `BoxResult` 把`SimpleError`与其他错误类型混合用，因为我们没法为它实现`From`，
+因为trait和类型都来自其他crates。
 
-## error-chain for Serious Errors
+## error-chain 用于严重错误
 
-For non-trivial applications have a look
-at the [error_chain](http://brson.github.io/2016/11/30/starting-with-error-chain) crate.
-A little macro magic can go a long way in Rust...
+对大点的程序我们看看[error_chain](http://brson.github.io/2016/11/30/starting-with-error-chain) crate。
+一个小小的宏魔法可以在Rust上经历很多。
 
-Create a binary crate with `cargo new --bin test-error-chain` and
-change to this directory. Edit `Cargo.toml` and add `error-chain="0.8.1"` to the end.
+用`cargo new --bin test-error-chain`创建一个二进制crate来改变目录。编辑 `Cargo.toml`加入 `error-chain="0.8.1"`。
 
-What __error-chain__ does for you is create all the definitions we needed for manually implementing
-an error type; creating a struct, and implementing the necessary traits: `Display`, `Debug` and `Error`.
-It also by default implements `From` so strings can be converted into errors.
+__error-chain__ 为你所做的是创建所有需要手动实现错误类型的定义；创建一个结构体，实现必要的
+traits: `Display`, `Debug` 和 `Error`。它也默认实现了`From` 所以字符串能转化成错误。
 
-Our first `src/main.rs` file looks like this. All the main program does is call `run`, print out any
-errors, and end the program with a non-zero exit code.  The macro `error_chain` generates all the
-definitions needed, within an `error` module - in a larger program you would put this in its own file.
-We need to bring everything in `error` back into global scope because our code will need to see
-the generated traits. By default, there will be an `Error` struct and a `Result` defined with that
-error.
+我们第一个`src/main.rs`文件看起来像这样。主程序所做的事就是调用 `run`，打印出任何错误，
+并用非0退出程序。宏`error_chain`在`error` 模块内生成所有我们需要的类型 —— 在一个更大的程序
+中你可以把这个放在单独的文件中。我们需要把 `error` 所有的东西带回全局范围因为需要在
+生成的公共traits中可见。默认会有 `Error` struct和一个对应错误定义的`Result`。
 
-Here we also ask for `From` to be implemented so that `std::io::Error` will convert into
-our error type using `foreign_links`:
+这里我们要求实现`From`以让`std::io::Error` 用 `foreign_links`转换成我们的错误类型:
 
 ```rust
 #[macro_use]
@@ -245,15 +221,13 @@ fn main() {
 // error: No such file or directory (os error 2)
 ```
 
-The 'foreign_links' has made our life easier, since the question mark operator now knows how to
-convert `std::io::Error` into our `error::Error`.  (Under the hood, the macro is creating a
-`From<std::io::Error>` conversion, exactly as spelt out earlier.)
+'foreign_links' 让我们的工作简单点，因问号操作符知道如何转换 `std::io::Error`到 `error::Error`。
+(在下面这个宏创建了一个`From<std::io::Error>`转换，如拼写的一样简单。)
 
-All the action happens in `run`; let's make it print out the first 10 lines of a file given as the
-first program argument.  There may or may not be such an argument, which isn't necessarily an
-error. Here we want to convert an `Option<String>` into a `Result<String>`. There are two `Option`
-methods for doing this conversion, and I've picked the simplest one.  Our `Error` type implements
-`From` for `&str`, so it's straightforward to make an error with a simple text message.
+所有的行为都在`run`里进行；我们让它打印出参数给定文件的头10行。有或没有传这个参数，
+就不算是个错误。这里我们想把 `Option<String>` 转换成 `Result<String>`。有2个 `Option`
+方法来进行转换，我选择最简单的那个。我们的`Error`类型为`&str`实现了`From`，所以很直观
+的用简单文本来报个错。
 
 ```rust
 fn run() -> Result<()> {
@@ -279,9 +253,7 @@ fn run() -> Result<()> {
     Ok(())
 }
 ```
-
-There is (again) a useful little macro `bail!` for 'throwing' errors.
-An alternative to the `ok_or` method here could be:
+这里再有一个有用的宏`bail!`来'扔出'错误。这是`ok_or`方法的替代:
 
 ```rust
     let file = match args().skip(1).next() {
@@ -290,11 +262,10 @@ An alternative to the `ok_or` method here could be:
     };
 ```
 
-Like `?` it does an _early return_.
+像`?`一样能 _早点返回_。
 
-The returned error contains an enum `ErrorKind`, which allows us to distinguish between various
-kinds of errors. There's always a variant `Msg` (when you say `Error::from(str)`) and the `foreign_links`
-has declared `Io` which wraps I/O errors:
+返回的错误包含一个枚举`ErrorKind`，它能让我们区分各类错误。总有变量`Msg`(当你调用 `Error::from(str)`)
+和`foreign_links`声明的`Io`包装了I/O错误:
 
 ```rust
 fn main() {
@@ -312,7 +283,7 @@ fn main() {
 // io No such file or directory (os error 2)
 ```
 
-It's straightforward to add new kinds of errors. Add an `errors` section to the `error_chain!` macro:
+很直观添加新错误类型。加入`errors`节到`error_chain!`宏里:
 
 ```rust
     error_chain!{
@@ -329,16 +300,15 @@ It's straightforward to add new kinds of errors. Add an `errors` section to the 
     }
 ```
 
-This defines how `Display` works for this new kind of error. And now we can handle
-'no argument' errors more specifically, feeding `ErrorKind::NoArgument` a `String` value:
+这个定义了`Display`如何为新错误类型工作。现在我们能处理'no argument'特定错误了，
+把`ErrorKind::NoArgument`看作为一个`String`值。
 
 ```rust
     let file = args().skip(1).next()
         .ok_or(ErrorKind::NoArgument("filename needed".to_string()))?;
 
 ```
-
-There's now an extra `ErrorKind` variant that you must match:
+这里有另一个`ErrorKind`变量你需要匹配:
 
 ```rust
 fn main() {
@@ -357,25 +327,24 @@ fn main() {
 // no argument "filename needed"
 ```
 
-Generally, it's useful to make errors as specific as possible, _particularly_ if this is a library
-function! This match-on-kind technique is pretty much the equivalent of traditional exception handling,
-where you match on exception types in a `catch` or `except` block.
+一般来说，让错误尽可能特化，_特别_ 是当在库函数中时！这个match-on-kind技术是传统
+异常处理的特别好的等价实现，传统方式下你会在 `catch` 和 `except`块中匹配异常类型。
 
-In summary, __error-chain__ creates a type `Error` for you, and defines `Result<T>` to be `std::result::Result<T,Error>`.
-`Error` contains an enum `ErrorKind` and by default there is one variant `Msg` for errors created from
-strings. You define external errors with `foreign_links` which does two things. First, it creates a new
-`ErrorKind` variant. Second, it defines `From` on these external errors so they can be converted to our
-error.  New error variants can be easily added.  A lot of irritating boilerplate code is eliminated.
+总而言之，__error-chain__ 创建了一个`Error`类型，并定义 `Result<T>`为`std::result::Result<T,Error>`。
+`Error`包含枚举`ErrorKind`且默认有个变量 `Msg`保存由字符串创建而来的错误。你用
+`foreign_links` 定义的额外错误做两件事。首先，它生成一个新的`ErrorKind`变量；其次，
+它在额外的错误上定义了 `From`以让它们被转换成我们的自定义错误。新错误变量能容易添加。
+一大堆恼人的锅碗瓢盆式代码可以避免。
 
-## Chaining Errors
+## Chaining Errors 链式错误
 
-But the really cool thing that this crate provides is _error chaining_.
+这个crate提供的最酷的功能是 _错误链_。
 
-As a _library user_, it's irritating when a method simply just 'throws' a generic I/O error. OK, it
-could not open a file, fine, but what file? Basically, what use is this information to me?
+作为一个 _库用户_，当一个方法简单到只'扔出'通用的I/O错误。OK，它不能打开一个文件，
+没问题，但是什么文件出错？基本上，这些信息对我有什么用？
 
-`error_chain` does _error chaining_ which helps solve this problem of over-generic errors. When we
-try to open the file, we can lazily lean on the conversion to `io::Error` using `?`, or _chain_ the error.
+`error_chain` 进行 _错误链式化_ 能帮助解决这类超通用错误。当我们尝试打开文件，我们能
+简单的依靠用`?`实现到`io::Error` 的转换，或 _链接_ 这个错误。
 
 ```rust
 // non-specific error
@@ -385,7 +354,7 @@ let f = File::open(&file)?;
 let f = File::open(&file).chain_err(|| "unable to read the damn file")?;
 ```
 
-Here's a new version of the program, with _no_ imported 'foreign' errors, just the defaults:
+这里有个新版本，_不带_ 导入的'foreign'错误，只用默认:
 
 ```rust
 #[macro_use]
@@ -394,7 +363,6 @@ extern crate error_chain;
 mod errors {
     error_chain!{
     }
-
 }
 use errors::*;
 
@@ -441,16 +409,14 @@ fn main() {
 // caused by: No such file or directory (os error 2)
 ```
 
-So the `chain_err` method takes the original error, and creates a new error which contains the
-original error - this can be continued indefinitely.  The closure is expected to return any
-value which can be _converted_ into an error.
+那么`chain_err`方法接收了原始错误，并创建一个新错误能包含原始错误 —— 这能不确定的持续。
+这个闭包期望返回任何能被 _转换_ 到错误的值。
 
-Rust macros can clearly save you a lot of typing.  `error-chain` even provides a shortcut that
-replaces the whole main program:
+Rust的宏能清晰的拯救你于很多输入。`error-chain`甚至提供一个别名能替换整个mian程序:
 
 ```rust
 quick_main!(run);
 ```
 
-(`run` is where all the action takes place, anyway.)
+(`run` 是所有动作发生的地方)
 
