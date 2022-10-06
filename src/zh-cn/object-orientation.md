@@ -573,4 +573,347 @@ Win32 API('32'不再表示32位)实际上是面向对象的，但用了旧的方
 
 
 Rust编程语言书的[下一版](https://rust-lang.github.io/book/second-edition/ch17-00-oop.html)
-对'面向对象'在Rust中的含义有个很好的讨论。
+对'面向对象'在Rust中的含义有个很好的讨论：
+
+
+## [BOOK](https://doc.rust-lang.org/book/ch17-00-oop.html)
+
+OOP是建模程序的一个方法。对象是Simula编程语言在1960s引入的编程概念。那些对象影响
+了Alan Kay的对象相互传递消息的编程架构。为了描述这个架构，他在1967年创造了OOP这个
+术语。有很多竞争性的定义描述了OOP是什么，根据其中有些定义，Rust是面向对象的，而对
+另一些定义则不是。在本节(Charpter 17)，我们将探索被认为是OOP公共的确定性特征，以及
+那些特征如何对应为Rust习惯。然后我们将向你展示如何在Rust中实现OOP设计模式，并讨论
+与实现这个相对的Rust增强替代之间的取舍。
+
+### 面向对象语言的特征
+在编程社区中没有关于一个语言应具备什么特征才能被看作是面向对象的共识。Rust被很多编
+程范式所影响，包括OOP；例如，我们在Ch13中探索了来自函数式语言的特征；按道理，OOP
+语言共用确定的共同特征，也就是对象，封装和继承。我们来看看每个特征的含义和Rust是如何
+支持它的。
+
+#### 对象包含数据和行为
+Erich Gamma, Richard Helm, Ralph Johnson, 和 John Vlissides的书《Design Patterns: 
+Elements of Reusable Object-Oriented Software》(Addison-Wesley Professional, 1994)，
+通俗的引用为GoF书，是个OO设计模式分类。它这么定义OOP：
+> OOP由对象构成，对象打包了数据和操作这些数据的过程。传统上过程也被称为方法
+> 和操作。
+采用这个定义，Rust是面向对象的：结构体和枚举拥有数据，而 `impl` 块在结构体和枚举上
+提供了方法。即便如此，有了方法的结构体和枚举也不被称为对象，虽然它们提供了GoF
+书的对象定义的功能。
+
+#### 封装隐藏了实现细节
+普遍联系在OOP的另一个层面是封装，它表示使用对象的代码不能访问实现对象的细节。
+因此，与对象打交道的唯一方式是通过它的公共API；外面的代码不应该接触到对象的内
+部直接修改数据或行为。这让程序员能够在不修改调用代码的前提下修改和重构一个对象
+的内部。
+
+我们在Ch7中讨论了如何控制封装：我们可以用 `pub` 关键字来决定我们代码中的哪个modules，
+types，functions，和methods是public的，默认其他的都是private的。例如，我们定义一个
+结构体 `AveragedCollection` 带着 i32的vector成员。这结构体也有个成员代表了vector值的
+平均值，意味着在它被任何人调用时也不需要计算平均值。换句话说， `AveragedCollection` 
+将为我们缓存平均值。17-1列举了 `AveragedCollection` 结构体的定义：
+```rust
+pub struct AveragedCollection {
+    list: Vec<i32>,
+    average: f64,
+}
+```
+这结构体被标记为 `pub` 的让其他代码能使用它，结构体内的成员是private的。这种情况下
+这很重要因为我们想要确保无论何时添加和删除一个vector的值，average也能被更新。我们
+通过实现结构体的 `add` ， `remove` ，和 `average` 方法来实现，在17-2中如下：
+```rust
+pub struct AveragedCollection {
+    list: Vec<i32>,
+    average: f64,
+}
+
+impl AveragedCollection {
+    pub fn add(&mut self, value: i32) {
+        self.list.push(value);
+        self.update_average();
+    }
+
+    pub fn remove(&mut self) -> Option<i32> {
+        let result = self.list.pop();
+        match result {
+            Some(value) => {
+                self.update_average();
+                Some(value)
+            }
+            None => None,
+        }
+    }
+
+    pub fn average(&self) -> f64 {
+        self.average
+    }
+
+    fn update_average(&mut self) {
+        let total: i32 = self.list.iter().sum();
+        self.average = total as f64 / self.list.len() as f64;
+    }
+}
+```
+公共方法 `add` ， `remove` ，和 `average` 是访问和修改 `AveragedCollection` 实例数据
+的唯一方式。当一个新值被通过 `add` 方法加到 list 中，或通过 `remove` 方法删除一个值，
+它们都调用了private的方法 `update_average` 来处理更新 `avarage` 字段。
+我们让 `list` 和 `average` 是private的字段，让外部代码没法直接添加和删除 `list` 成员，
+否则 `average` 可能在 `list` 变化时不同步了。`average` 方法返回 `average`字段的值，允
+许外部代码读到 `average` 但不能修改它。
+因为我们封装了结构体 `AveragedCollection` 的实现细节，我们在后面可以容易的修改一些
+部分，如数据结构。举例，我们可以用一个 `HashSet<i32>` 代替 `list` 前的 `Vec<i32>`。
+因为 `add` ， `remove` ，和 `average` 公共方法的签名是不变的，使用 `AveragedCollection`
+的代码也不用修改。如果我们让 `list` 是public的，这种情况将不太必要： `HashSet<i32>` 和
+`Vec<i32>` 有不同的添加和删除方法，所以外部调用代码很可能不得不跟着我们直接修改 `list`
+一起修改。
+如果封装是面向对象语言的必要层面，那么Rust符合需要。在代码不同部分使用 `pub` 与否的
+选择能封装实现细节。
+
+#### 继承用作了类型系统和代码复用
+'继承'是一个对象可以继承另一个对象定义元素的机制，因此获得父对象的数据和行为而不需要
+再定义一遍。
+如果一个语言必须有继承才是面向对象语言，那么Rust不是这类。这里不用宏没有办法定义一个
+结构体去继承父结构体的成员和方法实现。
+尽管如此，如果你习惯于在自己的编程工具箱里拥有继承，那么你在Rust中可以使用其他方案，
+取决于你一开始使用继承的目的。
+
+你可以为两个主要原因选择继承。其一是代码复用：你可以为一个类型实现特殊行为，继承让你
+能为另一个类型复用这个实现。你可以在Rust代码中通过使用trait默认方法的有限方式实现这个，
+就是你在ch10-14中看到的我们添加了 `Summary` trait 的 `summarize` 的默认方法。任何实现了
+`Summary` 的类型拥有可用的  `summarize` 方法而不需要更多代码。这类似于基类有个方法实现
+也为派生类所拥有，我们也可以在实现 `Summary` trait时重载  `summarize` 方法的默认实现，这
+类似于子类重载父类的方法。
+
+另一个原因是使用继承来关联类型系统：让子类可以被用在父类相同的位置。这也被称为是多态，
+它意味着你可以在每次运行时替换多个共享相同特定特征的对象。
+
+> #### 多态
+> 对很多人来说，多态等同于继承。但实际上一个更通用的概念是关系到代码可以与多个类型的
+> 数据一起使用。例如，那些类似是一般的子类。
+> Rust代替使用泛型来抽象不同可能性的类型且用trait约束来添加约束到那些类型须提供什么方法。
+> 这有时被称为限定参数的多态。
+>
+继承最近不再被很多编程语言作为喜爱的设计方案是因为它常有共享更多非必要代码的风险。子类
+不应该总共享所有父类的特征但用继承却如此。这让程序设计缺少弹性。它也引入了调用子类方法
+无意义的可能性或因为方法不能应用在子类上而引起错误。额外的，一些语言只允许单个继承(意味
+着一个子类只能继承自一个父类)，更进一步限制了程序设计的弹性。
+
+由于这些理由，Rust采用了trait对象这样不同方法来代替继承。我们来看看trait对象如何在Rust使多
+态可用。
+
+
+### 为不同类型的值采用Trait对象
+在Ch8我们提到vectors的一个限制是它们只能存储同一种类型的元素。我们在列表8-9创建了一个变通
+方法，通过定义 `SpreadsheetCell` 枚举类让它有变量来保存整数，浮点和文本。这意味这我们可以
+保存不同的类型在每个单元格里而仍有一个vector来代表一行单元格值。当我们可交换的条目是一个
+在编译时我们就已知类型的固定集合，这是个完美的好方案。
+
+尽管如此，有时我们希望自己库的用户在一个特殊的情况下能够扩展类型集合。为展示我们如何达成
+这个，我们将创建一个例子GUI工具遍历成员列表时在调用它们每一个 `draw` 方法来画到屏幕上 ——
+一个公共的GUI工具技术。我们将创建一个库crate称为 `gui` 包含一个GUI库的结构体。这个crate也许
+包含一些用户使用的类型，比如 `Button` 或 `TextField` 。此外，`gui` 用户也希望创建他们自己的类型
+且能画出：例如一个程序员可以创建 `Image` 而另外一个将添加 `SelectBox`。
+
+我们不将在这个例子中实现完整的GUI库但将展示这些组件如何适配在一起。在编写这个库时，我们
+不能知道和定义所有其他程序员可能想要创建的类型。但我们知道 `gui` 需要保持跟踪很多类型的值，
+并也需要调用每个不同类型值的 `draw` 方法。在我们调用 `draw` 时它不需要知道实际将发生什么，
+只是这类型值将有这个方法可以让我们调用。
+
+在一个有继承的语言中做这个，我们可以定义一个名叫 `Component` 的类并有一个叫作 `draw` 的方法。
+而其他类型，如 `Button`, `Image`, 和 `SelectBox`，可以继承自 `Component` 类和它的 `draw` 方法。
+它们每个可以重载 `draw` 方法来定义它们自己的行为，但框架可以把所有这些类型看作 `Component` 
+实例对待并调用它们的 `draw` 方法。但因为Rust没有继承，我们需要另一个方式来结构化 `gui` 库以
+允许用户扩展新类型。
+
+#### 定义一个公共行为的Trait
+为实现我们希望 `gui` 库拥有的行为，我们将定义个trait名为 `Draw` 并将有一个方法叫作 `draw` 。然后
+我们可以定义个vector来保存trait对象。一个trait对象同时指向一个实现了我们特定trait的类型实例和
+一个用来在运行时查找trait类型方法的列表。我们通过指定一些指针来创建一个trait对象，例如一个 `&`
+引用或一个 `Box<T>` 智能指针，然后 `dyn` 关键字，然后指定相关trait。(我们将在Ch19探讨trait对象
+必须使用一个指针的原因  "Dynamically Sized Types and the Sized Trait" )。我们在泛型或具体类型的地方
+可以使用trait对象。任何我们使用trait对象的地方，Rust类型系统将确保在编译时用在那个上下文的任何值
+将实现了对应的trait。相应的，我们在编译时不需要知道所有可能的类型。
+
+如我们提到的，在Rust中我们节制的不称结构体和枚举为"对象" 来区分于其他语言的对象。在结构体和枚举中，
+结构体成员的数据和在 `impl` 代码块的行为是分开的，而在其他语言里，数据和行为合并到一个常称为
+对象的概念中。尽管如此，trait对象因合并了数据和行为而更像其他语言中的对象。Trait对象一般不像其他
+语言中对象一样有用：它们特定的目的是让允许公共行为的抽象。
+
+列表17-3展示了如何定义个名为 `Draw` 的trait并有一个名为 `draw` 的方法：
+```rust
+pub trait Draw {
+    fn draw(&self);
+}
+```
+这个语法看起来像我们Ch10讨论过的如何定义trait。接下来有个新语法：一个
+名为 `Screen` 的结构体持有一个名为 `components` 的vector。这个vector成员
+类型常是 `Box<dyn Draw>`，它是个trait对象；它是个为任何实现了 `Draw` trait
+并放在 `Box` 时的替身。
+```rust
+pub struct Screen {
+    pub components: Vec<Box<dyn Draw>>,
+}
+```
+在 `Screen` 结构体上，我们将定义一个名为 `run` 的方法，它将调用每个 `component` 的 `draw` 方法
+如下：
+```rust
+impl Screen {
+    pub fn run(&self) {
+        for component in self.components.iter() {
+            component.draw();
+        }
+    }
+}
+```
+这与定义结构体时用trait约束泛型参数不同。一个泛型参数一次只能适用于具体类型，而trait对象允许
+多个具体类型在运行时来充当trait对象。例如，我们可以使用泛型和trait约束来定义 `Screen` 结构体：
+```rust
+pub struct Screen<T: Draw> {
+    pub components: Vec<T>,
+}
+
+impl<T> Screen<T>
+where
+    T: Draw,
+{
+    pub fn run(&self) {
+        for component in self.components.iter() {
+            component.draw();
+        }
+    }
+}
+```
+这限制了一个 `Screen` 实例有所有 `Button` 类型或所有 `TextField` 类型的列表。如果你将只用
+到同类集合，使用泛型和trait约束更好因为定义在编译时被用具体类型来单态化了。
+
+#### 实现Trait
+现在我们添加一些实现了 `Draw` trait的类型。我们将提供 `Button` 类型。再次说明实现一个GUI
+库超出了本书的范围，所以 `draw` 方法体将不会有任何有用实现。想象实现像这样，一个 `Buttom`
+结构体可以有 `width`，`height` 和 `label` 成员：
+```rust
+pub struct Button {
+    pub width: u32,
+    pub height: u32,
+    pub label: String,
+}
+
+impl Draw for Button {
+    fn draw(&self) {
+        // code to actually draw a button
+    }
+}
+```
+在 `Button` 的成员 `width`，`height` 和 `label` 成员与其他component的成员不同；
+例如，一个 `TextField` 类型可以有签名这些字段外加一个 `placeholder` 字段。
+每个我们想画在屏幕上的类型将实现 `Draw` trait但将在 `draw` 方法里使用不同的
+代码来定义如何画这个特殊类型，就像 `Button` 这里有的(如之前提的，没有实际
+GUI代码)。`Button` 类型，例如，可以有一个额外的 `impl` 块包含了关于在用户
+点击button时发生什么的方法。那些方法不会用在其他类型如 `TextField` 上。
+
+如果有人使用我们的库并决定实现一个有 `width`, `height`, 和 `options` 字段的
+`SelectBox` 结构体，它们在 `SelectBox` 上也实现了 `Draw` trait。如下：
+```rust
+use gui::Draw;
+
+struct SelectBox {
+    width: u32,
+    height: u32,
+    options: Vec<String>,
+}
+
+impl Draw for SelectBox {
+    fn draw(&self) {
+        // code to actually draw a select box
+    }
+}
+```
+我们的库用户现在可以写出他们的 `main` 函数以创建出一个 `Screen` 实例。对 `Screen` 实例，
+它们可以通过放到 `Box<T>` 中变成trait对象来添加一个 `SelectBox` 和一个 `Button` 。它们
+然后在 `Screen` 实例上调用 `run` 方法，然后调用每个component的 `draw`。如下：
+```rust
+use gui::{Button, Screen};
+
+fn main() {
+    let screen = Screen {
+        components: vec![
+            Box::new(SelectBox {
+                width: 75,
+                height: 10,
+                options: vec![
+                    String::from("Yes"),
+                    String::from("Maybe"),
+                    String::from("No"),
+                ],
+            }),
+            Box::new(Button {
+                width: 50,
+                height: 10,
+                label: String::from("OK"),
+            }),
+        ],
+    };
+
+    screen.run();
+}
+```
+在我们写这个GUI库时，并不知道有人也许添加 `SelectBox` 类型，但我们 `Screen` ，但
+我们的 `Screen` 实现能操作在新类型上并画出它是因为 `SelectBox` 实现了 `Draw` trait，
+这意味这它实现了 `draw` 方法。
+
+这个概念 —— 只考虑这消息是个响应值而不管值的具体类型 —— 与动态语言中的 'duck typing' 
+相似：如果它走路像Duck并嘎嘎叫，那么它必然是个Duck！在 `Screen` 的 `run` 实现中，
+`run` 不需要知道每个component的具体类型。它不检查一个component是否是个 `Button`
+或  `SelectBox` ，它只是在这component上调用 `draw` 方法。通过指定 `Box<dyn Draw>`
+作为components vector中的值类型，我们完成定义 `Screen` 以需要一些我们能在它上调用
+`draw` 的变量值。
+
+使用trait对象和Rust类型系统写出相似于duck typing代码的好处是，我们从不需要检查
+一个变量值在运行时是否实现过特定方法，或担心如果没实现这个必要的trait而得到错误。
+
+例如，以下展示了如果我们尝试创建一个 `Screen` 和一个 `String` 作为component时会发生
+什么：
+```rust
+use gui::Screen;
+
+fn main() {
+    let screen = Screen {
+        components: vec![Box::new(String::from("Hi"))],
+    };
+
+    screen.run();
+}
+```
+我们得到如下错误因为 `String` 没实现 `Draw` trait：
+```rust
+$ cargo run
+   Compiling gui v0.1.0 (file:///projects/gui)
+error[E0277]: the trait bound `String: Draw` is not satisfied
+ --> src/main.rs:5:26
+  |
+5 |         components: vec![Box::new(String::from("Hi"))],
+  |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Draw` is not implemented for `String`
+  |
+  = help: the trait `Draw` is implemented for `Button`
+  = note: required for the cast to the object type `dyn Draw`
+
+For more information about this error, try `rustc --explain E0277`.
+error: could not compile `gui` due to previous error
+```
+这个错误让我们知道要么我们传递给 `Screen` 的不是真想传的值而需要传一个不同类型，或
+我们应该在 `String` 上实现 `Draw` 所以 `Screen` 能够调用它的 `draw` 。
+
+#### Trait 对象执行动态派发
+回想Ch10的 "Performance of Code Using Generics" 节里我们讨论了当我们在泛型上用trait约束
+编译器执行的单态化处理：编译器为每个我们用了泛型参数的具体类型生成了非泛型的函数和方法
+实现。来自单态化的代码在进行静态派发，它是当编译器知道在编译时你调用了什么方法。这与
+动态派发相反，后者是在编译时编码器没法告诉你要调用哪个方法。在动态派发情况里，编译器
+产生一些能在运行时搞清楚调用哪个方法的代码。
+
+当我们使用trait对象时，Rust必须使用动态派发。编译器不知道所有也许被与trait对象一起使用的
+类型，所以它不知道哪个方法实现在哪个类型上需要调用。作为代替，在运行时，Rust使用trait
+对象内的指针以弄清要调用哪个方法。这个查找引起一个在静态派发时不存在的运行时代价。
+动态派发也阻止了编译器去inline一个方法的代码，它也相应的阻止了一些优化。
+尽管如此，我们在代码里得到额外的弹性如在列表17-5中写的和支持了列表17-9，所以是个取舍。
+
+
+### 实现一个面向对象的设计模式
